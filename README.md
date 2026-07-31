@@ -75,18 +75,33 @@ Shapes inflate as a group climbs and deflate as it goes untrained; tier 5 alone
 gets the aura. Cardio, hikes and swims feed the activity streak only and never
 touch muscle timers.
 
-## API key
+## Running it
 
-The key is backend-only — Vite inlines `VITE_*` vars only, so it can't reach the
-bundle. Set `ANTHROPIC_API_KEY` on the function's environment:
+Two deploy targets, and the difference is only the AI coach.
 
-- **Local**: `cp .env.example .env` and fill it in.
-- **Vercel**: Project → Settings → Environment Variables.
-- **GitHub Actions**: repo → Settings → Secrets and variables → Actions → New
-  repository secret, named `ANTHROPIC_API_KEY`.
+**GitHub Pages** (`.github/workflows/pages.yml`, enable Pages → Source: GitHub
+Actions). Static, so `/api/ai` does not exist there. Logging, routines,
+swapping, tiers, calendar, warnings and the progression map all work. For the
+coach you paste your own Anthropic key under Profile → AI coach key; the app
+then calls the API straight from the browser.
 
-Without a key the app is fully usable — logging, tiers, calendar, warnings and the
-progression map all work offline. Only the coach is disabled, and it says so.
+**Vercel** — runs `api/ai.js`, so set `ANTHROPIC_API_KEY` in Project → Settings
+→ Environment Variables and leave the in-app key field empty. This is the safer
+path: the key stays on the server and never enters the browser.
+
+Locally: `cp .env.example .env`, fill it in, `npm run dev`.
+
+### About the in-app key field
+
+It exists because a static host has no other way to reach the API, and it is
+the less safe option: the key lives in that browser's localStorage and is sent
+from the device. Anyone with access to that browser can read it. Exports strip
+it (there's a test), and the proxy always wins when a backend answers — the
+field is ignored entirely on Vercel.
+
+`src/lib/aiProtocol.js` holds the model, tool schemas, prompt and validation,
+and is imported by both paths, so a request is the same forced tool call and
+gets the same validation whichever way it goes.
 
 ## Pending
 

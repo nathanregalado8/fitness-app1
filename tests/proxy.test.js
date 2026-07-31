@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateQA, validateRoutine, validateSuggestions } from '../api/ai.js';
+import { validateQA, validateRoutine, validateSuggestions } from '../src/lib/aiProtocol.js';
 
 const ALLOWED = ['barbell-bench-press', 'incline-barbell-press'];
 
@@ -120,4 +120,45 @@ test('QA answers keep only well-formed data points', () => {
   assert.equal(out.answer, 'Your bench went up 5kg.');
   assert.equal(out.dataPoints.length, 1);
   assert.equal(out.caveats.length, 1);
+});
+
+// ------------------------------------------------- request shape / key safety
+
+test('every request forces the tool call on the single configured model', async () => {
+  const { MODEL, buildRequest, messagesBody } = await import('../src/lib/aiProtocol.js');
+  const signals = { schema: 'fitness-app1/layer1@1', profile: { language: 'es' }, perExercise: [] };
+
+  for (const [action, tool] of [
+    ['suggestion', 'record_suggestions'],
+    ['routine', 'propose_routine'],
+    ['qa', 'answer_question'],
+  ]) {
+    const body = messagesBody(buildRequest(action, { signals, catalog: [], request: 'x', question: 'x' }));
+    assert.equal(body.model, MODEL);
+    assert.equal(body.model, 'claude-sonnet-5', 'spec pins one model for all Layer 2 calls');
+    assert.deepEqual(body.tool_choice, { type: 'tool', name: tool }, `${action} must force its tool`);
+    assert.equal(body.tools.length, 1);
+    // Sampling params are rejected by this model and must never be sent.
+    assert.equal(body.temperature, undefined);
+    assert.equal(body.top_p, undefined);
+  }
+});
+
+test('the user language reaches the prompt', async () => {
+  const { buildRequest } = await import('../src/lib/aiProtocol.js');
+  const es = buildRequest('qa', { signals: { schema: 'fitness-app1/layer1@1', profile: { language: 'es' } } });
+  const en = buildRequest('qa', { signals: { schema: 'fitness-app1/layer1@1', profile: { language: 'en' } } });
+  assert.match(es.system, /Spanish/);
+  assert.match(en.system, /English/);
+});
+
+test('an exported backup never carries the API key', async () => {
+  const { defaultState, exportState } = await import('../src/lib/storage.js');
+  const state = defaultState();
+  state.profile.apiKey = 'sk-ant-secret-value';
+
+  const dump = exportState(state);
+  assert.ok(!dump.includes('sk-ant-secret-value'), 'key must be stripped from exports');
+  assert.equal(JSON.parse(dump).profile.apiKey, undefined);
+  assert.equal(JSON.parse(dump).profile.goal, state.profile.goal, 'the rest of the profile survives');
 });

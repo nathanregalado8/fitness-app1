@@ -44,6 +44,8 @@ function serverlessApi() {
 }
 
 export default defineConfig({
+  // GitHub Pages serves the app from /<repo>/, Vercel and local dev from /.
+  base: process.env.GITHUB_PAGES ? '/fitness-app1/' : '/',
   plugins: [react(), serverlessApi()],
   server: { port: 5173 },
 });

@@ -80,6 +80,7 @@ export default function Profile() {
         </Field>
       </Card>
 
+      <ApiKeyCard />
       <ConcernsCard />
       <ProgressionCard />
       <TargetsCard />
@@ -132,6 +133,61 @@ export default function Profile() {
         <p className="muted tiny">{tr('formOnlyNote')}</p>
       </Card>
     </>
+  );
+}
+
+/**
+ * Somewhere to paste an Anthropic key when the app is served from a static
+ * host that cannot run the serverless function.
+ *
+ * The proxy is still the default and the safer path: whenever a backend
+ * answers /api/ai, that is what gets used and this field is ignored.
+ */
+function ApiKeyCard() {
+  const { state, tr, actions } = useApp();
+  const saved = (state.profile.apiKey ?? '').trim();
+  const [value, setValue] = useState(saved);
+
+  return (
+    <Card title={tr('apiKeyTitle')}>
+      <p className="muted tiny">{tr('apiKeyHelp')}</p>
+
+      <Field>
+        <input
+          type="password"
+          value={value}
+          placeholder="sk-ant-..."
+          autoComplete="off"
+          spellCheck="false"
+          aria-label={tr('apiKeyTitle')}
+          onChange={(ev) => setValue(ev.target.value)}
+        />
+      </Field>
+
+      <div className="row">
+        <Button
+          variant="primary"
+          disabled={!value.trim() || value.trim() === saved}
+          onClick={() => actions.setProfile({ apiKey: value.trim() })}
+        >
+          {tr('save')}
+        </Button>
+        {saved && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setValue('');
+              actions.setProfile({ apiKey: '' });
+            }}
+          >
+            {tr('apiKeyClear')}
+          </Button>
+        )}
+      </div>
+
+      {saved && <p className="tiny" style={{ color: 'var(--ok)' }}>✓ {tr('apiKeySaved')}</p>}
+      <p className="tiny" style={{ color: 'var(--warn)' }}>{tr('apiKeyWarning')}</p>
+    </Card>
   );
 }
 

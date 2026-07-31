@@ -151,7 +151,7 @@ export function SuggestionQueue({ sessionId }) {
       <Card tone="warn">
         <strong className="small">{tr('suggestionFailed')}</strong>
         <p className="muted tiny">
-          {job.error === 'missing_api_key' ? tr('coachDisabled') : job.error}
+          {job.error === 'bad_api_key' ? tr('badApiKey') : job.error === 'no_backend' ? tr('coachNoBackend') : job.error === 'missing_api_key' ? tr('coachDisabled') : job.error}
         </p>
       </Card>
     );

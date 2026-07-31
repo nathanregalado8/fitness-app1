@@ -104,7 +104,7 @@ export default function Coach({ onUseRoutine }) {
       {error && (
         <Card tone="warn">
           <strong className="small">{tr('suggestionFailed')}</strong>
-          <p className="muted tiny">{error.code === 'missing_api_key' ? tr('coachDisabled') : error.message || error.code}</p>
+          <p className="muted tiny">{error.code === 'bad_api_key' ? tr('badApiKey') : error.code === 'no_backend' ? tr('coachNoBackend') : error.code === 'missing_api_key' ? tr('coachDisabled') : error.message || error.code}</p>
         </Card>
       )}
 

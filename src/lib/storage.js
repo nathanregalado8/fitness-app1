@@ -58,6 +58,8 @@ export function defaultState() {
       equipment: ['barbell', 'dumbbells', 'machine', 'cable', 'bench', 'rack', 'bar', 'bodyweight'],
       bodyweight: null,
       areasOfConcern: [],
+      /** Optional: only used on static hosts with no serverless function. */
+      apiKey: '',
       pplOrder: ['push', 'pull', 'legs'],
       onboarded: false,
     },
@@ -124,7 +126,9 @@ export function saveState(state) {
 }
 
 export function exportState(state) {
-  return JSON.stringify(state, null, 2);
+  // Never write the API key into an export file — those get shared around.
+  const { apiKey, ...profile } = state.profile ?? {};
+  return JSON.stringify({ ...state, profile }, null, 2);
 }
 
 export function importState(json) {

@@ -276,6 +276,10 @@ const STRINGS = {
   },
   cautions: { en: 'Cautions', es: 'Precauciones' },
   caveats: { en: 'Caveats', es: 'Matices' },
+  coachNoBackend: {
+    en: 'This is the static build — the AI coach needs the serverless function, which GitHub Pages cannot run. Everything else works. Deploy on Vercel to enable the coach.',
+    es: 'Esta es la versión estática — el entrenador IA necesita la función serverless, que GitHub Pages no puede correr. Todo lo demás funciona. Despliega en Vercel para activarlo.',
+  },
   coachDisabled: {
     en: 'The coach needs ANTHROPIC_API_KEY set on the server. Everything else works without it.',
     es: 'El entrenador necesita ANTHROPIC_API_KEY en el servidor. Todo lo demás funciona sin ella.',
@@ -308,6 +312,18 @@ const STRINGS = {
   targets: { en: 'Next-session targets', es: 'Objetivos de la próxima sesión' },
   noTargets: { en: 'No targets set.', es: 'Sin objetivos definidos.' },
   clearTarget: { en: 'Clear', es: 'Borrar' },
+  apiKeyTitle: { en: 'AI coach key', es: 'Clave del entrenador IA' },
+  apiKeyHelp: {
+    en: 'Only needed on a static host like GitHub Pages, which cannot run the backend. Paste your Anthropic key and the coach starts working.',
+    es: 'Solo hace falta en un host estático como GitHub Pages, que no puede correr el backend. Pega tu clave de Anthropic y el entrenador empieza a funcionar.',
+  },
+  apiKeyWarning: {
+    en: 'Stored in this browser only, and sent straight to Anthropic from this device. Anyone with access to this browser can read it. The safer option is deploying on Vercel with the key as a server environment variable — then leave this empty.',
+    es: 'Se guarda solo en este navegador y se envía directo a Anthropic desde este dispositivo. Cualquiera con acceso a este navegador puede leerla. Lo más seguro es desplegar en Vercel con la clave como variable de entorno del servidor — entonces deja esto vacío.',
+  },
+  apiKeySaved: { en: 'Key saved in this browser', es: 'Clave guardada en este navegador' },
+  apiKeyClear: { en: 'Remove key', es: 'Quitar clave' },
+  badApiKey: { en: 'Anthropic rejected that key.', es: 'Anthropic rechazó esa clave.' },
   data: { en: 'Data', es: 'Datos' },
   exportData: { en: 'Export', es: 'Exportar' },
   importData: { en: 'Import', es: 'Importar' },

@@ -8,10 +8,81 @@
 
 import { EXERCISES, EXERCISE_BY_ID } from '../data/exercises.js';
 import { buildSignals } from './signals.js';
+import {
+  allowedExerciseIds,
+  buildRequest,
+  extractToolInput,
+  messagesBody,
+  validateFor,
+} from './aiProtocol.js';
 
 const ENDPOINT = '/api/ai';
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
-async function post(action, payload) {
+/**
+ * Direct browser → Anthropic call, used only when the app is served from a
+ * static host that cannot run the serverless function AND the user has pasted
+ * their own key in the profile.
+ *
+ * This is the less safe path by design: the key sits in this browser's
+ * localStorage rather than on a server. It exists because a static deploy has
+ * no other way to reach the API. The proxy remains the default whenever a
+ * backend answers.
+ */
+async function callDirect(action, payload, apiKey) {
+  const spec = buildRequest(action, payload);
+  if (!spec) return { ok: false, error: { code: 'unknown_action' } };
+
+  let res;
+  try {
+    res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        // Required for browser-origin requests; without it the API rejects
+        // the call before CORS even completes.
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(messagesBody(spec)),
+    });
+  } catch {
+    return { ok: false, error: { code: 'network' } };
+  }
+
+  let message;
+  try {
+    message = await res.json();
+  } catch {
+    return { ok: false, error: { code: 'bad_response', message: `HTTP ${res.status}` } };
+  }
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: {
+        code: res.status === 401 ? 'bad_api_key' : message?.error?.type ?? 'upstream_error',
+        message: res.status === 429 ? 'Rate limited. Try again shortly.' : message?.error?.message,
+      },
+    };
+  }
+  if (message.stop_reason === 'refusal') return { ok: false, error: { code: 'refusal' } };
+
+  const input = extractToolInput(message, spec.tool.name);
+  if (!input) return { ok: false, error: { code: 'no_tool_use' } };
+
+  // Same validation the proxy applies — a hallucinated exercise id is dropped
+  // on this path too.
+  return {
+    ok: true,
+    action,
+    model: message.model,
+    data: validateFor(action, input, allowedExerciseIds(action, payload)),
+  };
+}
+
+async function post(action, payload, apiKey) {
   let res;
   try {
     res = await fetch(ENDPOINT, {
@@ -23,11 +94,23 @@ async function post(action, payload) {
     return { ok: false, error: { code: 'network', message: 'Could not reach the coach service.' } };
   }
 
+  // No serverless function here (static host). Fall back to the user's own key
+  // if they supplied one, otherwise report the missing backend.
+  if (res.status === 404) {
+    return apiKey ? callDirect(action, payload, apiKey) : { ok: false, error: { code: 'no_backend' } };
+  }
+
   let body;
   try {
     body = await res.json();
   } catch {
-    return { ok: false, error: { code: 'bad_response', message: `HTTP ${res.status}` } };
+    // A static host (GitHub Pages) has no serverless function, so /api/ai
+    // returns the 404 page instead of JSON. Everything except the coach still
+    // works, so say that plainly rather than showing a parse error.
+    return {
+      ok: false,
+      error: res.status === 404 ? { code: 'no_backend' } : { code: 'bad_response', message: `HTTP ${res.status}` },
+    };
   }
   return body?.ok ? body : { ok: false, error: body?.error ?? { code: 'unknown' } };
 }
@@ -41,6 +124,9 @@ export function sessionExerciseIds(session) {
  * Post-session job (spec: runs after each logged session, not on every app open).
  * Focuses the history window on the exercises that were just performed.
  */
+/** The key the user pasted in their profile, if any. */
+const localKey = (state) => (state.profile?.apiKey ?? '').trim() || null;
+
 export function requestSuggestion(state, session, userContext = '') {
   const focus = sessionExerciseIds(session);
   const signals = buildSignals(state, {
@@ -48,7 +134,7 @@ export function requestSuggestion(state, session, userContext = '') {
     plannedExerciseIds: focus,
     historyDepth: 6,
   });
-  return post('suggestion', { signals, userContext });
+  return post('suggestion', { signals, userContext }, localKey(state));
 }
 
 /** Compact catalog so the model can only pick real, available exercises. */
@@ -70,11 +156,11 @@ function catalogFor(state) {
 /** On-demand routine generation with freeform context ("solo lower hoy"). */
 export function requestRoutine(state, request) {
   const signals = buildSignals(state, { historyDepth: 4, maxExercises: 16 });
-  return post('routine', { signals, catalog: catalogFor(state), request });
+  return post('routine', { signals, catalog: catalogFor(state), request }, localKey(state));
 }
 
 /** Read-only Q&A about the user's own logged data. */
 export function askQuestion(state, question) {
   const signals = buildSignals(state, { historyDepth: 6, maxExercises: 16 });
-  return post('qa', { signals, question });
+  return post('qa', { signals, question }, localKey(state));
 }
