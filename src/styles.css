@@ -329,11 +329,13 @@ textarea { resize: vertical; min-height: 64px; }
 .cal-dot.is-activity { background: var(--ok); }
 
 /* ------------------------------------------------------------ body map */
-.bodymap-wrap { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.bodymap svg { width: 100%; height: auto; max-width: 240px; display: block; }
-.muscle-shape { cursor: pointer; transition: opacity 0.15s ease; stroke: #0b0e13; stroke-width: 1.2; }
-.muscle-shape:hover { opacity: 0.82; }
-.muscle-shape.is-selected { stroke: var(--accent); stroke-width: 2.4; }
+.bodymap-wrap { display: flex; gap: 8px; justify-content: center; align-items: flex-start; padding: 4px 0 8px; }
+.bodymap { flex: 1 1 44%; max-width: 190px; min-width: 130px; }
+.bodymap svg { width: 100%; height: auto; display: block; }
+.muscle-hit { cursor: pointer; }
+.muscle-hit:hover { stroke: var(--accent) !important; opacity: 0.5; }
+.muscle-hit.is-selected { opacity: 1; }
+.bodymap svg { overflow: visible; }
 
 .tier-badge {
   display: inline-flex;

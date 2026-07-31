@@ -42,6 +42,9 @@ export const EQUIPMENT = [
   'bike',
   'pool',
   'rope',
+  'kettlebell',
+  'band',
+  'sled',
 ];
 
 export function defaultState() {

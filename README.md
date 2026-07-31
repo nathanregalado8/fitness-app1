@@ -16,7 +16,9 @@ npm run build
 | Phase | Status |
 |---|---|
 | 1 — Logging: exercises, sets/reps/weight, 5 set types, calendar, history, templates | done |
-| 2 — Per-muscle power score → 5 independent tiers, interactive body map | done (placeholder art) |
+| Routines: pick a session type → a coherent routine, built for your goal | done |
+| Swap: every exercise can be swapped for an alternative that trains the same thing | done |
+| 2 — Per-muscle power score → 5 independent tiers, interactive body map | done (Claude Design artwork) |
 | 2.5 — Session types, activity streak, recovery + areas-of-concern warnings | done |
 | 3 — Structured onboarding, open concern list, goal-branched progression map | done |
 | 4 — Layer 1 signals + Layer 2 AI via backend proxy | done |
@@ -26,11 +28,29 @@ All edits happen through forms and buttons. Chat never writes to the log.
 ## Architecture
 
 ```
-src/lib/signals.js     Layer 1 — deterministic signals, no thresholds, no AI
-src/lib/powerScore.js  recency + volume trend + consistency → score → tier 1-5
-src/lib/recovery.js    24-36h muscle window, 48h flagged-area cooldown
-api/ai.js              Layer 2 — the only reader of ANTHROPIC_API_KEY
+src/lib/signals.js        Layer 1 — deterministic signals, no thresholds, no AI
+src/lib/powerScore.js     recency + volume trend + consistency → score → tier 1-5
+src/lib/recovery.js       24-36h muscle window, 48h flagged-area cooldown
+src/lib/routineBuilder.js blueprint per split × prescription per goal
+src/components/muscleShapes.js  avatar paths, per muscle per tier (Claude Design)
+api/ai.js                 Layer 2 — the only reader of ANTHROPIC_API_KEY
 ```
+
+### Routines
+
+Picking a session type builds the routine immediately — no network, no API key,
+so it always works and is always structured the same way: heavy compounds, then
+accessories, then isolation. What changes with your goal is the prescription
+(strength 5×5, hypertrophy 4×8, endurance 3×15) and which lifts get chosen.
+
+Guards that keep a routine sensible, each locked by a test: a slot is filled only
+by an exercise those muscles actually *lead* (so a squat can't fill the hamstring
+slot), no two lifts with identical primary muscles, accessories complement the
+main lift rather than repeating it, muscles inside the rest window are skipped,
+and nothing is programmed that your equipment can't do.
+
+142 exercises, so every lift has real alternatives — 17 for bench, 25 for squat.
+Swapping keeps the prescribed sets and only changes the movement.
 
 **Layer 1** turns raw logs into signals on-device. **Layer 2** receives *only those
 signals* — raw logs never leave the browser (there's a test asserting it). Every

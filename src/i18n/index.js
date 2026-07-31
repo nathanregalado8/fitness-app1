@@ -70,6 +70,9 @@ const STRINGS = {
   eq_bike: { en: 'Bike', es: 'Bicicleta' },
   eq_pool: { en: 'Pool', es: 'Piscina' },
   eq_rope: { en: 'Jump rope', es: 'Cuerda' },
+  eq_kettlebell: { en: 'Kettlebell', es: 'Pesa rusa' },
+  eq_band: { en: 'Bands', es: 'Bandas' },
+  eq_sled: { en: 'Sled', es: 'Trineo' },
 
   // --------------------------------------------------------- session types
   st_push: { en: 'Push', es: 'Empuje' },
@@ -114,6 +117,41 @@ const STRINGS = {
   noExercisesYet: { en: 'No exercises added yet.', es: 'Aún no has añadido ejercicios.' },
   currentTarget: { en: 'Target for today', es: 'Objetivo de hoy' },
   lastTime: { en: 'Last time', es: 'La última vez' },
+
+  // -------------------------------------------------------------- routine
+  routineReady: { en: 'Routine ready', es: 'Rutina lista' },
+  routineFor: { en: 'Built for your goal: {goal}', es: 'Hecha para tu objetivo: {goal}' },
+  regenerate: { en: 'Regenerate', es: 'Regenerar' },
+  startBlank: { en: 'Start blank', es: 'Empezar vacía' },
+  slot_main: { en: 'Main lift', es: 'Principal' },
+  slot_accessory: { en: 'Accessory', es: 'Accesorio' },
+  slot_finisher: { en: 'Finisher', es: 'Final' },
+  reason_familiar: { en: 'you already train this', es: 'ya lo entrenas' },
+  reason_variety: { en: 'new angle for variety', es: 'ángulo nuevo por variedad' },
+  skippedForRecovery: {
+    en: '{muscles} skipped — trained {ago}, still recovering.',
+    es: '{muscles} omitido — entrenado {ago}, aún recuperando.',
+  },
+  routineOverridden: {
+    en: 'Everything in this split was trained recently. Programmed anyway — go lighter, or pick another day.',
+    es: 'Todo en esta división se entrenó hace poco. Se programó igual — baja la carga, o elige otro día.',
+  },
+  skippedNoEquipment: {
+    en: '{muscles} skipped — no equipment for it in your profile.',
+    es: '{muscles} omitido — no tienes equipo para eso en tu perfil.',
+  },
+  swap: { en: 'Swap', es: 'Cambiar' },
+  swapTitle: { en: 'Swap {exercise}', es: 'Cambiar {exercise}' },
+  swapHelp: {
+    en: 'Same muscles, ranked by how closely they match. Nothing is hidden — options you lack equipment for are marked.',
+    es: 'Mismos músculos, ordenados por cercanía. No se oculta nada — se marcan las opciones sin equipo.',
+  },
+  alternativesCount: { en: '{n} alternatives', es: '{n} alternativas' },
+  activityTarget: { en: 'Target: {min} min', es: 'Objetivo: {min} min' },
+  noRoutinePossible: {
+    en: 'Not enough equipment selected to build this session. Add equipment in your profile, or start blank.',
+    es: 'No hay suficiente equipo para armar esta sesión. Añade equipo en tu perfil, o empieza vacía.',
+  },
 
   // ------------------------------------------------------------- templates
   templates: { en: 'Templates', es: 'Plantillas' },

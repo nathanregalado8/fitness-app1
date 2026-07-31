@@ -11,8 +11,11 @@ import {
 } from '../lib/storage.js';
 import { exerciseHistory } from '../lib/signals.js';
 import { activeWarnings } from '../lib/recovery.js';
-import { formatDate, toISODate } from '../lib/date.js';
+import { buildRoutine } from '../lib/routineBuilder.js';
+import { muscleName } from '../data/muscles.js';
+import { formatDate, formatHoursAgo, toISODate } from '../lib/date.js';
 import ExercisePicker from './ExercisePicker.jsx';
+import SwapPicker from './SwapPicker.jsx';
 import WarningsPanel from './WarningsPanel.jsx';
 import { Button, Card, Empty, Field, Modal, NumberInput, Segmented } from './ui.jsx';
 
@@ -35,6 +38,35 @@ export default function LogSession({ pending, onConsumePending, onSaved }) {
   const [picking, setPicking] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
+  const [routine, setRoutine] = useState(null);
+  const [swapEntryId, setSwapEntryId] = useState(null);
+
+  /**
+   * Picking a session type builds a full routine straight away — structured by
+   * the blueprint for that split and prescribed by the profile's goal. Nothing
+   * here waits on the network, so the routine is always available and always
+   * coherent.
+   */
+  const startSession = (sessionType) => {
+    const session = newSession(sessionType);
+    const plan = buildRoutine(state, sessionType);
+
+    if (plan.activity) {
+      session.durationMin = plan.activity.minutes;
+      session.entries = [newEntry(plan.activity.exerciseId, { sets: [] })];
+    } else {
+      session.entries = plan.blocks.map((b) =>
+        newEntry(b.exerciseId, {
+          sets: Array.from({ length: b.sets }, () =>
+            newSet('normal', { weight: b.targetWeight, targetReps: b.targetReps })
+          ),
+        })
+      );
+    }
+
+    setRoutine(plan);
+    setDraft(session);
+  };
 
   // A routine handed over from the Coach tab becomes an editable draft.
   useEffect(() => {
@@ -64,10 +96,11 @@ export default function LogSession({ pending, onConsumePending, onSaved }) {
   if (!draft) {
     return (
       <StartPanel
-        onStart={(type) => setDraft(newSession(type))}
+        onStart={startSession}
         onUseTemplate={(tpl) => {
           const session = newSession(tpl.sessionType, { customName: tpl.name });
           session.entries = tpl.exerciseIds.filter((id) => EXERCISE_BY_ID[id]).map((id) => buildEntry(state, id));
+          setRoutine(null);
           setDraft(session);
         }}
       />
@@ -99,6 +132,7 @@ export default function LogSession({ pending, onConsumePending, onSaved }) {
     actions.saveSession(draft);
     const saved = draft;
     setDraft(null);
+    setRoutine(null);
     onSaved?.(saved);
   };
 
@@ -107,7 +141,14 @@ export default function LogSession({ pending, onConsumePending, onSaved }) {
       <Card
         title={isCustom && draft.customName ? draft.customName : tr(`st_${draft.sessionType}`)}
         action={
-          <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setDraft(null);
+              setRoutine(null);
+            }}
+          >
             {tr('discardSession')}
           </Button>
         }
@@ -162,6 +203,17 @@ export default function LogSession({ pending, onConsumePending, onSaved }) {
         )}
       </Card>
 
+      {routine && (
+        <RoutineCard
+          routine={routine}
+          onRegenerate={() => startSession(draft.sessionType)}
+          onClear={() => {
+            setDraft((d) => ({ ...d, entries: [] }));
+            setRoutine(null);
+          }}
+        />
+      )}
+
       <WarningsPanel warnings={warnings} />
 
       {draft.entries.length === 0 && (
@@ -190,6 +242,7 @@ export default function LogSession({ pending, onConsumePending, onSaved }) {
           }
           onRemoveSet={(setId) => updateEntry(entry.id, { sets: entry.sets.filter((s) => s.id !== setId) })}
           onRemove={() => setDraft((d) => ({ ...d, entries: d.entries.filter((e) => e.id !== entry.id) }))}
+          onSwap={() => setSwapEntryId(entry.id)}
         />
       ))}
 
@@ -222,6 +275,19 @@ export default function LogSession({ pending, onConsumePending, onSaved }) {
               entries: [...d.entries, draft.isStrength ? buildEntry(state, id) : newEntry(id, { sets: [] })],
             }));
             setPicking(false);
+          }}
+        />
+      )}
+
+      {swapEntryId && (
+        <SwapPicker
+          exerciseId={draft.entries.find((e) => e.id === swapEntryId)?.exerciseId}
+          excludeIds={exerciseIds}
+          onClose={() => setSwapEntryId(null)}
+          onPick={(newId) => {
+            // Keep the sets already prescribed — only the movement changes.
+            updateEntry(swapEntryId, { exerciseId: newId });
+            setSwapEntryId(null);
           }}
         />
       )}
@@ -322,7 +388,7 @@ function StartPanel({ onStart, onUseTemplate }) {
   );
 }
 
-function EntryEditor({ entry, isStrength, onChange, onChangeSet, onAddSet, onRemoveSet, onRemove }) {
+function EntryEditor({ entry, isStrength, onChange, onChangeSet, onAddSet, onRemoveSet, onRemove, onSwap }) {
   const { state, lang, tr } = useApp();
   const meta = EXERCISE_BY_ID[entry.exerciseId];
   const target = state.targets?.[entry.exerciseId] ?? null;
@@ -333,9 +399,14 @@ function EntryEditor({ entry, isStrength, onChange, onChangeSet, onAddSet, onRem
     <Card
       title={meta?.name[lang] ?? entry.exerciseId}
       action={
-        <Button size="sm" variant="danger" onClick={onRemove} aria-label={tr('removeExercise')}>
-          ×
-        </Button>
+        <span className="row row-tight">
+          <Button size="sm" onClick={onSwap}>
+            ⇄ {tr('swap')}
+          </Button>
+          <Button size="sm" variant="danger" onClick={onRemove} aria-label={tr('removeExercise')}>
+            ×
+          </Button>
+        </span>
       }
     >
       {target && (
@@ -415,6 +486,69 @@ function EntryEditor({ entry, isStrength, onChange, onChangeSet, onAddSet, onRem
       <Field label={tr('notes')}>
         <input type="text" value={entry.note} onChange={(e) => onChange({ note: e.target.value })} />
       </Field>
+    </Card>
+  );
+}
+
+
+/** Why this routine looks the way it does — rendered from structured reasons. */
+function RoutineCard({ routine, onRegenerate, onClear }) {
+  const { lang, tr } = useApp();
+  const goalLabel = tr(`goal${routine.goal[0].toUpperCase()}${routine.goal.slice(1)}`);
+  const empty = routine.blocks.length === 0 && !routine.activity;
+
+  return (
+    <Card
+      tone="accent"
+      title={tr('routineReady')}
+      action={
+        <span className="row row-tight">
+          <Button size="sm" onClick={onRegenerate}>
+            {tr('regenerate')}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onClear}>
+            {tr('startBlank')}
+          </Button>
+        </span>
+      }
+    >
+      <p className="small" style={{ margin: 0 }}>
+        {tr('routineFor', { goal: goalLabel })}
+      </p>
+
+      {empty && <p className="tiny" style={{ color: 'var(--warn)' }}>{tr('noRoutinePossible')}</p>}
+
+      {routine.activity && (
+        <span className="muted tiny">{tr('activityTarget', { min: routine.activity.minutes })}</span>
+      )}
+
+      {routine.blocks.length > 0 && (
+        <ul className="list-reset">
+          {routine.blocks.map((b) => (
+            <li key={b.exerciseId} className="spread tiny">
+              <span className="muted">
+                {tr(`slot_${b.slot}`)} · {exerciseName(b.exerciseId, lang)}
+              </span>
+              <span className="muted">{tr(`reason_${b.reason}`)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {routine.overridden && (
+        <span className="tiny" style={{ color: 'var(--warn)' }}>{tr('routineOverridden')}</span>
+      )}
+
+      {routine.skipped.map((s, i) => (
+        <span key={i} className="tiny" style={{ color: 'var(--warn)' }}>
+          {s.reason === 'equipment'
+            ? tr('skippedNoEquipment', { muscles: s.muscles.map((m) => muscleName(m, lang)).join(', ') })
+            : tr('skippedForRecovery', {
+                muscles: s.muscles.map((m) => muscleName(m, lang)).join(', '),
+                ago: formatHoursAgo(s.hoursSinceLastTrained, lang),
+              })}
+        </span>
+      ))}
     </Card>
   );
 }

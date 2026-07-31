@@ -134,9 +134,9 @@ export const PROGRESSION_MAP = {
   ),
   'romanian-deadlift': P(
     ['deadlift'],
-    ['leg-curl', 'back-extension'],
-    ['leg-curl', 'hip-thrust'],
-    ['leg-curl']
+    ['lying-leg-curl', 'back-extension'],
+    ['lying-leg-curl', 'hip-thrust'],
+    ['lying-leg-curl']
   ),
   'barbell-curl': P(['chin-up'], ['dumbbell-curl'], ['cable-curl', 'hammer-curl'], ['dumbbell-curl']),
   'dumbbell-curl': P(['barbell-curl'], ['cable-curl'], ['hammer-curl', 'cable-curl'], ['cable-curl']),
@@ -178,8 +178,8 @@ export const PROGRESSION_MAP = {
     ['walking-lunge']
   ),
   'walking-lunge': P(['bulgarian-split-squat'], ['leg-press'], ['bulgarian-split-squat'], ['leg-press']),
-  'hip-thrust': P(['romanian-deadlift'], ['back-extension'], ['bulgarian-split-squat', 'leg-curl'], ['back-extension']),
-  'leg-curl': P(['romanian-deadlift'], [], ['romanian-deadlift', 'back-extension'], []),
+  'hip-thrust': P(['romanian-deadlift'], ['back-extension'], ['bulgarian-split-squat', 'lying-leg-curl'], ['back-extension']),
+  'lying-leg-curl': P(['romanian-deadlift'], [], ['romanian-deadlift', 'back-extension'], []),
   'leg-extension': P(['hack-squat'], [], ['leg-press', 'bulgarian-split-squat'], []),
   'standing-calf-raise': P(['seated-calf-raise'], [], ['seated-calf-raise'], []),
   'seated-calf-raise': P(['standing-calf-raise'], [], ['standing-calf-raise'], []),

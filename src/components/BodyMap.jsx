@@ -1,120 +1,120 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useApp } from '../state/store.jsx';
 import { MUSCLE_BY_ID, muscleName } from '../data/muscles.js';
 import { muscleStats } from '../lib/signals.js';
 import { MAX_TIER, tierLabel } from '../lib/powerScore.js';
 import { formatDate, formatHoursAgo } from '../lib/date.js';
+import {
+  AURA_CORE,
+  AURA_DEFS,
+  AURA_FLARE,
+  GROUP_ORDER,
+  HI_FILL,
+  INK,
+  MUSCLES,
+  RIM,
+  RIM_FILL,
+  SHADE_FILL,
+  SILHOUETTE,
+  TIER_COLORS,
+  VIEWBOX,
+  tierOpacity,
+} from './muscleShapes.js';
 import { Card, Stat } from './ui.jsx';
 
 /**
  * PHASE 2 — interactive tiered body map.
  *
- * Assets swap per muscle based on that muscle's current tier: shapes inflate as
- * a group climbs and deflate as it goes untrained, and tier 5 alone gets the
- * aura treatment. Every group is independent — upper body can sit at tier 5
- * while legs sit at tier 2.
+ * Artwork by Claude Design: one set of paths per muscle group per tier, so each
+ * group renders at its own level independently. Upper body can sit at tier 5
+ * while legs sit at tier 2, on the same figure.
  *
- * The geometry here is deliberately plain placeholder art. Final character
- * assets drop into `TIER_SCALE` / the shape tables without touching the tier
- * logic that feeds them.
+ * Paint order is fixed by the asset contract:
+ *   SILHOUETTE → INK → aura → per group (fill, shade, hi, line) → hit → RIM
+ *
+ * The aura is a single filtered layer covering every tier-5 group at once, so
+ * adjacent peak groups blend instead of stacking halos. Tier 5 is the only
+ * level that gets it.
  */
 
-const TIER_COLORS = ['#3b4452', '#4d7fa8', '#4fa3c7', '#47c9a4', '#ffd166'];
+function Figure({ view, levels, selected, onSelect, label }) {
+  // Filter ids must be unique per figure or the two SVGs collide.
+  const uid = `${useId().replace(/[:]/g, '')}-${view}`;
+  const ids = GROUP_ORDER[view];
+  const peak = ids.filter((id) => levels[id] === MAX_TIER);
 
-/** Visible growth as tiers rise, visible deflation as they fall. */
-const TIER_SCALE = [0.88, 0.94, 1.0, 1.06, 1.13];
-
-const e = (cx, cy, rx, ry) => ({ type: 'ellipse', cx, cy, rx, ry });
-const r = (x, y, w, h, rd = 6) => ({ type: 'rect', x, y, w, h, rd });
-
-const FRONT = [
-  { muscleId: 'shoulders', shapes: [e(33, 50, 11, 9), e(87, 50, 11, 9)] },
-  { muscleId: 'chest', shapes: [e(49, 60, 13, 10), e(71, 60, 13, 10)] },
-  { muscleId: 'biceps', shapes: [e(27, 78, 7, 13), e(93, 78, 7, 13)] },
-  { muscleId: 'forearms', shapes: [e(21, 106, 6, 15), e(99, 106, 6, 15)] },
-  { muscleId: 'abs', shapes: [r(48, 74, 24, 32, 7)] },
-  { muscleId: 'quads', shapes: [e(49, 138, 11, 26), e(71, 138, 11, 26)] },
-];
-
-const BACK = [
-  { muscleId: 'shoulders', shapes: [e(33, 50, 11, 9), e(87, 50, 11, 9)] },
-  { muscleId: 'upper_back', shapes: [r(44, 46, 32, 22, 9)] },
-  { muscleId: 'lats', shapes: [e(44, 78, 12, 16), e(76, 78, 12, 16)] },
-  { muscleId: 'triceps', shapes: [e(27, 78, 7, 13), e(93, 78, 7, 13)] },
-  { muscleId: 'lower_back', shapes: [r(50, 96, 20, 18, 6)] },
-  { muscleId: 'glutes', shapes: [e(50, 124, 12, 12), e(70, 124, 12, 12)] },
-  { muscleId: 'hamstrings', shapes: [e(49, 154, 11, 22), e(71, 154, 11, 22)] },
-  { muscleId: 'calves', shapes: [e(49, 198, 8, 18), e(71, 198, 8, 18)] },
-];
-
-function centerOf(shapes) {
-  const pts = shapes.map((s) => (s.type === 'ellipse' ? [s.cx, s.cy] : [s.x + s.w / 2, s.y + s.h / 2]));
-  return [
-    pts.reduce((a, p) => a + p[0], 0) / pts.length,
-    pts.reduce((a, p) => a + p[1], 0) / pts.length,
-  ];
-}
-
-function Shape({ shape }) {
-  return shape.type === 'ellipse' ? (
-    <ellipse cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry} />
-  ) : (
-    <rect x={shape.x} y={shape.y} width={shape.w} height={shape.h} rx={shape.rd} />
-  );
-}
-
-function Figure({ parts, stats, selected, onSelect, label }) {
-  const idPrefix = label.toLowerCase();
   return (
     <div className="bodymap">
-      <svg viewBox="0 0 120 230" role="img" aria-label={label}>
-        <defs>
-          <filter id={`aura-${idPrefix}`} x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="3.2" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+      <svg viewBox={VIEWBOX} role="img" aria-label={label} style={{ overflow: 'visible' }}>
+        <defs dangerouslySetInnerHTML={{ __html: AURA_DEFS.replace(/id="/g, `id="${uid}-`) }} />
 
-        {/* Silhouette */}
-        <g fill="#1d232d" stroke="#262e3a" strokeWidth="1">
-          <circle cx="60" cy="24" r="13" />
-          <rect x="42" y="40" width="36" height="76" rx="14" />
-          <rect x="44" y="112" width="32" height="106" rx="14" />
-          <rect x="18" y="46" width="14" height="76" rx="7" />
-          <rect x="88" y="46" width="14" height="76" rx="7" />
-        </g>
+        <path d={SILHOUETTE[view]} fill="#14181c" stroke="#242a30" strokeWidth="0.8" />
 
-        {parts.map((part) => {
-          const stat = stats[part.muscleId];
-          const tier = stat?.tier ?? 1;
-          const [cx, cy] = centerOf(part.shapes);
-          const scale = TIER_SCALE[tier - 1];
-          const isSelected = selected === part.muscleId;
+        {INK[view].map((d, i) => (
+          <path key={`ink-${i}`} d={d} fill="none" stroke="#2b333c" strokeWidth="0.6" />
+        ))}
+
+        {peak.length > 0 && (
+          <g className="bm-aura" style={{ pointerEvents: 'none' }}>
+            <g filter={`url(#${uid}-auraSoft)`} opacity="0.5">
+              {peak.map((id) =>
+                MUSCLES[view][id].levels[MAX_TIER - 1].fill.map((d, i) => (
+                  <path key={`${id}-soft-${i}`} d={d} fill={AURA_FLARE} />
+                ))
+              )}
+            </g>
+            <g filter={`url(#${uid}-aura)`} opacity="0.85">
+              {peak.map((id) =>
+                MUSCLES[view][id].levels[MAX_TIER - 1].fill.map((d, i) => (
+                  <path key={`${id}-core-${i}`} d={d} fill={AURA_CORE} />
+                ))
+              )}
+            </g>
+          </g>
+        )}
+
+        {ids.map((id) => {
+          const lvl = Math.min(MAX_TIER, Math.max(1, levels[id] ?? 1));
+          const g = MUSCLES[view][id].levels[lvl - 1];
+          const isSelected = selected === id;
+
           return (
-            <g
-              key={`${idPrefix}-${part.muscleId}`}
-              className={`muscle-shape ${isSelected ? 'is-selected' : ''}`}
-              fill={TIER_COLORS[tier - 1]}
-              opacity={0.55 + 0.09 * tier}
-              filter={tier === MAX_TIER ? `url(#aura-${idPrefix})` : undefined}
-              transform={`translate(${cx} ${cy}) scale(${scale}) translate(${-cx} ${-cy})`}
-              onClick={() => onSelect(part.muscleId)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(ev) => {
-                if (ev.key === 'Enter' || ev.key === ' ') onSelect(part.muscleId);
-              }}
-              aria-label={part.muscleId}
-            >
-              {part.shapes.map((s, i) => (
-                <Shape key={i} shape={s} />
-              ))}
+            <g key={id} data-muscle={id} data-level={lvl}>
+              <g opacity={tierOpacity(lvl - 1)}>
+                {g.fill.map((d, i) => (
+                  <path key={`f${i}`} d={d} fill={TIER_COLORS[lvl - 1]} />
+                ))}
+                {g.shade.map((d, i) => (
+                  <path key={`s${i}`} d={d} fill={SHADE_FILL} fillRule="evenodd" opacity="0.34" />
+                ))}
+                {g.hi.map((d, i) => (
+                  <path key={`h${i}`} d={d} fill={HI_FILL} fillRule="evenodd" opacity="0.16" />
+                ))}
+                {g.line.map((d, i) => (
+                  <path key={`l${i}`} d={d} fill="none" stroke="#000" strokeWidth="0.5" opacity="0.35" />
+                ))}
+              </g>
+
+              {/* Constant-size touch target, independent of the tier's artwork. */}
+              <path
+                className={`muscle-hit ${isSelected ? 'is-selected' : ''}`}
+                d={MUSCLES[view][id].hit}
+                fill="transparent"
+                stroke={isSelected ? 'var(--accent)' : 'transparent'}
+                strokeWidth="1.4"
+                role="button"
+                tabIndex={0}
+                aria-label={id}
+                onClick={() => onSelect(id)}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Enter' || ev.key === ' ') onSelect(id);
+                }}
+              />
             </g>
           );
         })}
+
+        <path d={RIM[view]} fill={RIM_FILL} opacity="0.1" style={{ pointerEvents: 'none' }} />
       </svg>
       <p className="muted tiny" style={{ textAlign: 'center' }}>
         {label}
@@ -132,17 +132,21 @@ export default function BodyMap() {
     return Object.fromEntries(list.map((m) => [m.muscleId, m]));
   }, [state]);
 
+  const levels = useMemo(
+    () => Object.fromEntries(Object.values(stats).map((m) => [m.muscleId, m.tier])),
+    [stats]
+  );
+
   const current = stats[selected];
 
   return (
     <>
       <Card title={tr('bodyMap')}>
         <div className="bodymap-wrap">
-          <Figure parts={FRONT} stats={stats} selected={selected} onSelect={setSelected} label={tr('front')} />
-          <Figure parts={BACK} stats={stats} selected={selected} onSelect={setSelected} label={tr('back')} />
+          <Figure view="front" levels={levels} selected={selected} onSelect={setSelected} label={tr('front')} />
+          <Figure view="back" levels={levels} selected={selected} onSelect={setSelected} label={tr('back')} />
         </div>
         <p className="muted tiny">{tr('tierExplainer')}</p>
-        <p className="muted tiny">{tr('artPlaceholder')}</p>
       </Card>
 
       {current && (
@@ -193,9 +197,7 @@ export default function BodyMap() {
                 <span className="tiny muted">T{m.tier}</span>
               </span>
               <span className="meter">
-                <span
-                  style={{ width: `${Math.round(m.powerScore)}%`, background: TIER_COLORS[m.tier - 1] }}
-                />
+                <span style={{ width: `${Math.round(m.powerScore)}%`, background: TIER_COLORS[m.tier - 1] }} />
               </span>
             </button>
           ))}
