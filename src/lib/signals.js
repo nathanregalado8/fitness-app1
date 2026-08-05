@@ -226,11 +226,16 @@ export function muscleStats(state, { now = Date.now() } = {}) {
 
     const countIn = (days) => new Set(list.filter((e) => e.ts > now - days * MS_DAY).map((e) => e.date)).size;
 
+    const weeks = streakWeeks(list, now);
+
     const score = powerScore({
       daysSinceLastTrained: daysSince,
       sizeClass: muscle.sizeClass,
       volumeTrendRatio,
       repCompletionPct,
+      // A tier is earned over weeks, not in one session.
+      sessionsLast28: countIn(28),
+      streakWeeks: weeks,
     });
 
     return {
@@ -243,7 +248,8 @@ export function muscleStats(state, { now = Date.now() } = {}) {
       sessionsLast7: countIn(7),
       sessionsLast14: countIn(14),
       sessionsLast28: countIn(28),
-      streakWeeks: streakWeeks(list, now),
+      streakWeeks: weeks,
+      maturity: round(score.maturity, 3),
       volumeMetric: metric,
       rollingVolume7d: windows.map((w) => round(w, 1)),
       volumeTrendRatio: round(volumeTrendRatio, 3),

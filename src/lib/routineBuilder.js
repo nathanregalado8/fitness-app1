@@ -67,7 +67,6 @@ export const BLUEPRINTS = {
     { slot: 'accessory', muscles: ['quads'], movement: 'any' },
     { slot: 'accessory', muscles: ['glutes', 'hamstrings'], movement: 'any' },
     { slot: 'finisher', muscles: ['calves'], movement: 'isolation' },
-    { slot: 'finisher', muscles: ['abs'], movement: 'any' },
   ],
   full_body: [
     { slot: 'main', muscles: ['quads', 'glutes'], movement: 'compound' },
@@ -75,14 +74,52 @@ export const BLUEPRINTS = {
     { slot: 'main', muscles: ['lats', 'upper_back'], movement: 'compound' },
     { slot: 'accessory', muscles: ['hamstrings'], movement: 'any' },
     { slot: 'accessory', muscles: ['shoulders'], movement: 'isolation' },
-    { slot: 'finisher', muscles: ['abs'], movement: 'any' },
+    { slot: 'finisher', muscles: ['calves'], movement: 'isolation' },
   ],
   custom: [
     { slot: 'main', muscles: ['chest', 'lats', 'quads'], movement: 'compound' },
     { slot: 'main', muscles: ['shoulders', 'hamstrings', 'upper_back'], movement: 'compound' },
     { slot: 'accessory', muscles: ['biceps', 'triceps'], movement: 'any' },
-    { slot: 'finisher', muscles: ['abs'], movement: 'any' },
+    { slot: 'finisher', muscles: ['biceps', 'triceps', 'calves'], movement: 'isolation' },
   ],
+};
+
+/**
+ * Core work closes every strength day.
+ *
+ * It sits outside the blueprint on purpose: the slot budget shortens the main
+ * body of the session when you train often, and core is exactly the thing that
+ * used to fall off the end when that happened.
+ */
+export const CORE_SLOTS = [
+  { slot: 'core', muscles: ['abs'], movement: 'any' },
+  { slot: 'core', muscles: ['abs'], movement: 'isolation' },
+];
+
+/** How many core exercises to program, by how long the rest of the day is. */
+const coreCount = (blockCount) => (blockCount >= 6 ? 1 : 2);
+
+/**
+ * A short cardio piece after the weights — conditioning without turning the
+ * session into a cardio day. It logs by duration and carries no primary
+ * movers, so it never touches muscle recovery timers (spec Phase 2.5).
+ */
+export const CARDIO_FINISHER = {
+  minutes: { strength: 8, hypertrophy: 10, endurance: 20, general: 12 },
+  /** First option the user owns the equipment for; running needs nothing. */
+  options: ['run', 'jump-rope', 'assault-bike', 'rowing-machine', 'stair-climber', 'cycling', 'treadmill-run'],
+};
+
+/**
+ * Rest between working sets, in seconds. Heavy low-rep work needs far more of
+ * it than a core or conditioning finisher — showing one number for the whole
+ * session would be wrong.
+ */
+export const REST_SECONDS = {
+  strength: { main: 180, accessory: 120, finisher: 90, core: 45 },
+  hypertrophy: { main: 120, accessory: 90, finisher: 60, core: 40 },
+  endurance: { main: 75, accessory: 60, finisher: 45, core: 30 },
+  general: { main: 120, accessory: 90, finisher: 60, core: 40 },
 };
 
 /**
@@ -95,21 +132,25 @@ export const PRESCRIPTION = {
     main: { sets: 5, reps: 5 },
     accessory: { sets: 3, reps: 8 },
     finisher: { sets: 3, reps: 10 },
+    core: { sets: 3, reps: 12 },
   },
   hypertrophy: {
     main: { sets: 4, reps: 8 },
     accessory: { sets: 3, reps: 12 },
     finisher: { sets: 3, reps: 15 },
+    core: { sets: 3, reps: 15 },
   },
   endurance: {
     main: { sets: 3, reps: 15 },
     accessory: { sets: 3, reps: 18 },
     finisher: { sets: 2, reps: 20 },
+    core: { sets: 3, reps: 20 },
   },
   general: {
     main: { sets: 3, reps: 10 },
     accessory: { sets: 3, reps: 12 },
     finisher: { sets: 2, reps: 15 },
+    core: { sets: 3, reps: 15 },
   },
 };
 
@@ -260,9 +301,7 @@ export function buildRoutine(state, sessionType, { now = Date.now(), ignoreRecov
   const cautions = [];
   const skipped = [];
 
-  for (const spec of blueprint) {
-    if (blocks.length >= budget) break;
-
+  const fillSlot = (spec) => {
     // Respect recovery: if every muscle this slot targets is still inside the
     // rest window, drop the slot rather than pile more volume on it.
     const allTooRecent =
@@ -277,7 +316,7 @@ export function buildRoutine(state, sessionType, { now = Date.now(), ignoreRecov
         muscles: spec.muscles,
         hoursSinceLastTrained: primaryHours[spec.muscles[0]] ?? null,
       });
-      continue;
+      return false;
     }
 
     const pick = pickForSlot(spec, {
@@ -291,7 +330,7 @@ export function buildRoutine(state, sessionType, { now = Date.now(), ignoreRecov
     });
     if (!pick) {
       skipped.push({ reason: 'equipment', muscles: spec.muscles, hoursSinceLastTrained: null });
-      continue;
+      return false;
     }
 
     used.add(pick.exercise.id);
@@ -306,6 +345,7 @@ export function buildRoutine(state, sessionType, { now = Date.now(), ignoreRecov
       sets: scheme.sets,
       targetReps: target?.reps ?? scheme.reps,
       targetWeight: target?.weight ?? last?.topSetWeight ?? null,
+      restSec: restFor(goal, spec.slot),
       slot: spec.slot,
       reason: recentByExercise.has(pick.exercise.id) ? 'familiar' : 'variety',
       concerns: pick.concerns,
@@ -315,6 +355,21 @@ export function buildRoutine(state, sessionType, { now = Date.now(), ignoreRecov
     for (const part of pick.concerns) {
       cautions.push({ type: 'concern', bodyPart: part, exerciseId: pick.exercise.id });
     }
+    return true;
+  };
+
+  for (const spec of blueprint) {
+    if (blocks.length >= budget) break;
+    fillSlot(spec);
+  }
+
+  // Core closes the day. It is filled after the budget so a short session
+  // shortens the main work, not the abs — which is what used to happen.
+  let core = 0;
+  const wantCore = coreCount(blocks.length);
+  for (const spec of CORE_SLOTS) {
+    if (core >= wantCore) break;
+    if (fillSlot(spec)) core += 1;
   }
 
   // Surface muscles that are inside the softer caution window but still trained.
@@ -334,5 +389,44 @@ export function buildRoutine(state, sessionType, { now = Date.now(), ignoreRecov
     return { ...retry, skipped, overridden: true };
   }
 
-  return { sessionType, goal, blocks, cautions, skipped, activity: null, overridden: false };
+  const finisher = cardioFinisher(profile, goal);
+
+  return {
+    sessionType,
+    goal,
+    blocks,
+    cautions,
+    skipped,
+    activity: null,
+    finisher,
+    estimatedMinutes: estimateMinutes(blocks, finisher),
+    overridden: false,
+  };
+}
+
+/** Rest between working sets for one slot, in seconds. */
+export function restFor(goal, slot) {
+  const table = REST_SECONDS[goal] ?? REST_SECONDS.general;
+  return table[slot] ?? table.accessory;
+}
+
+/** The conditioning piece that closes a strength day, if the user can do one. */
+export function cardioFinisher(profile, goal) {
+  const owned = profile?.equipment ?? [];
+  const exerciseId = CARDIO_FINISHER.options.find((id) => {
+    const e = EXERCISE_BY_ID[id];
+    return e && hasEquipmentFor(e, owned);
+  });
+  if (!exerciseId) return null;
+  return {
+    exerciseId,
+    minutes: CARDIO_FINISHER.minutes[goal] ?? CARDIO_FINISHER.minutes.general,
+  };
+}
+
+/** Rough wall-clock length: working time plus the rest it prescribes. */
+export function estimateMinutes(blocks, finisher) {
+  const WORK_SEC_PER_SET = 40;
+  const seconds = blocks.reduce((a, b) => a + b.sets * (WORK_SEC_PER_SET + (b.restSec ?? 90)), 0);
+  return Math.round(seconds / 60) + (finisher?.minutes ?? 0);
 }

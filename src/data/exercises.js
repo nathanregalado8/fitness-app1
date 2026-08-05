@@ -302,7 +302,7 @@ export const EXERCISES = [
     ['abs'], [], ['lower_back'], ['cable']),
   ex('crunch', 'Crunch', 'Abdominales', 'core', I,
     ['abs'], [], ['neck', 'lower_back'], ['bodyweight']),
-  ex('bicycle-crunch', 'Bicycle Crunch', 'Bicicleta', 'core', I,
+  ex('bicycle-crunch', 'Bicycle Crunch', 'Bicicleta Abdominal', 'core', I,
     ['abs'], [], ['neck', 'lower_back'], ['bodyweight']),
   ex('decline-sit-up', 'Decline Sit-up', 'Abdominales Declinados', 'core', I,
     ['abs'], [], ['lower_back', 'neck'], ['bench']),

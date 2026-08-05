@@ -65,15 +65,29 @@ test('tier progress is 0..1 inside the current tier', () => {
   assert.ok(tierProgress(100) === 1);
 });
 
-test('a freshly trained, growing, consistent muscle reaches the peak tier', () => {
-  const { tier, score } = powerScore({
-    daysSinceLastTrained: 1,
-    sizeClass: 'large',
-    volumeTrendRatio: 1.4,
-    repCompletionPct: 1,
-  });
-  assert.equal(tier, MAX_TIER);
-  assert.ok(score > 80);
+test('the peak tier takes weeks of accumulated work, not one good session', () => {
+  const perfect = { daysSinceLastTrained: 1, sizeClass: 'large', volumeTrendRatio: 1.4, repCompletionPct: 1 };
+
+  // One session, however good, is not a tier-5 muscle.
+  const first = powerScore({ ...perfect, sessionsLast28: 1, streakWeeks: 1 });
+  assert.ok(first.tier < MAX_TIER, `one session already reached tier ${first.tier}`);
+  assert.ok(first.tier >= 2, 'but it is not nothing either');
+
+  // The same session quality, sustained, is.
+  const built = powerScore({ ...perfect, sessionsLast28: 10, streakWeeks: 5 });
+  assert.equal(built.tier, MAX_TIER);
+  assert.ok(built.score > 80);
+  assert.ok(built.score > first.score);
+});
+
+test('tiers climb as the work accumulates', () => {
+  const perfect = { daysSinceLastTrained: 1, sizeClass: 'large', volumeTrendRatio: 1.2, repCompletionPct: 1 };
+  let prev = -1;
+  for (const [sessionsLast28, streakWeeks] of [[1, 1], [4, 2], [7, 3], [10, 5]]) {
+    const { score } = powerScore({ ...perfect, sessionsLast28, streakWeeks });
+    assert.ok(score > prev, `score fell at ${sessionsLast28} sessions`);
+    prev = score;
+  }
 });
 
 test('a muscle deflates as it goes untrained', () => {
@@ -84,12 +98,13 @@ test('a muscle deflates as it goes untrained', () => {
   assert.ok(stale.tier < fresh.tier, 'tier should fall, not just the score');
 });
 
-test('a brand-new user is not scored as failing', () => {
-  const { tier } = powerScore({
+test('a never-trained muscle sits at the bottom tier, with room to climb', () => {
+  const { tier, score } = powerScore({
     daysSinceLastTrained: null,
     sizeClass: 'large',
     volumeTrendRatio: null,
     repCompletionPct: null,
   });
-  assert.equal(tier, 2, 'no-data floors put an untrained group just above the bottom');
+  assert.equal(tier, 1);
+  assert.ok(score > 0, 'the no-data floors keep it from reading as a failure');
 });

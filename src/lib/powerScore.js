@@ -24,6 +24,24 @@ export const DECAY_DAYS = { large: 6, small: 4.5 };
 /** Score floors used when a signal has no data yet (a new user is not "bad"). */
 export const NO_DATA = { trend: 40, consistency: 55 };
 
+/**
+ * How much accumulated work a group needs before its score counts in full.
+ *
+ * Without this, one good session pins recency at 100 and consistency at 100 and
+ * the group jumps straight to the top tier — which is not what a tier means.
+ * A tier is built: roughly eight sessions in the last four weeks, trained
+ * across consecutive weeks, is what "fully earned" looks like.
+ */
+export const MATURITY = { sessions: 8, weeks: 4, floor: 0.34, sessionShare: 0.6 };
+
+/** 0.34 (brand new) → 1 (four consistent weeks of work). */
+export function maturityFactor({ sessionsLast28 = 0, streakWeeks = 0 } = {}) {
+  const bySessions = clamp((sessionsLast28 ?? 0) / MATURITY.sessions, 0, 1);
+  const byWeeks = clamp((streakWeeks ?? 0) / MATURITY.weeks, 0, 1);
+  const built = MATURITY.sessionShare * bySessions + (1 - MATURITY.sessionShare) * byWeeks;
+  return MATURITY.floor + (1 - MATURITY.floor) * built;
+}
+
 /** Upper bound of each tier; tier 5 is everything above the last threshold. */
 export const TIER_THRESHOLDS = [20, 40, 60, 80];
 export const MAX_TIER = TIER_THRESHOLDS.length + 1;
@@ -54,8 +72,10 @@ export function consistencyComponent(repCompletionPct) {
 
 /**
  * @param {{daysSinceLastTrained: number|null, sizeClass: string,
- *          volumeTrendRatio: number|null, repCompletionPct: number|null}} stats
- * @returns {{score: number, tier: number, tierProgress: number, components: object}}
+ *          volumeTrendRatio: number|null, repCompletionPct: number|null,
+ *          sessionsLast28: number, streakWeeks: number}} stats
+ * @returns {{score: number, tier: number, tierProgress: number, components: object,
+ *            maturity: number}}
  */
 export function powerScore(stats) {
   const components = {
@@ -63,14 +83,15 @@ export function powerScore(stats) {
     trend: trendComponent(stats.volumeTrendRatio),
     consistency: consistencyComponent(stats.repCompletionPct),
   };
-  const score = clamp(
+  const raw =
     components.recency * WEIGHTS.recency +
-      components.trend * WEIGHTS.trend +
-      components.consistency * WEIGHTS.consistency,
-    0,
-    100
-  );
-  return { score, tier: tierFor(score), tierProgress: tierProgress(score), components };
+    components.trend * WEIGHTS.trend +
+    components.consistency * WEIGHTS.consistency;
+
+  const maturity = maturityFactor(stats);
+  const score = clamp(raw * maturity, 0, 100);
+
+  return { score, tier: tierFor(score), tierProgress: tierProgress(score), components, maturity };
 }
 
 export function tierFor(score) {

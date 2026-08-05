@@ -155,6 +155,10 @@ export function newEntry(exerciseId, overrides = {}) {
     exerciseId,
     note: '',
     sets: [newSet('normal')],
+    /** Prescribed rest between working sets, in seconds. */
+    restSec: null,
+    /** Timed work (a cardio finisher) logs minutes instead of sets. */
+    durationMin: null,
     ...overrides,
   };
 }

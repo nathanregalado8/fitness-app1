@@ -91,6 +91,16 @@ const STRINGS = {
   allExercisesDone: { en: 'Every exercise is done. Finish the session below.', es: 'Terminaste todos los ejercicios. Cierra la sesión abajo.' },
   sessionPlan: { en: 'Session plan', es: 'Plan de la sesión' },
   sessionDetails: { en: 'Session details', es: 'Detalles de la sesión' },
+  slot_core: { en: 'Core', es: 'Core' },
+  restPerSet: { en: '{sec}s rest', es: '{sec}s descanso' },
+  restBetweenSets: { en: 'Rest between sets', es: 'Descanso entre series' },
+  setsAndReps: { en: '{sets} × {reps}', es: '{sets} × {reps}' },
+  totalSets: { en: 'Sets', es: 'Series' },
+  totalExercises: { en: 'Exercises', es: 'Ejercicios' },
+  estimatedTime: { en: 'Approx.', es: 'Aprox.' },
+  minutesShort: { en: 'min', es: 'min' },
+  cardioFinisher: { en: 'Cardio finisher', es: 'Cardio al final' },
+  logDuration: { en: 'Log duration', es: 'Registrar duración' },
 
   // ------------------------------------------------------------ generator
   buildToday: { en: 'Build today\'s', es: 'Arma la de hoy' },
@@ -147,6 +157,13 @@ const STRINGS = {
   eq_kettlebell: { en: 'Kettlebell', es: 'Pesa rusa' },
   eq_band: { en: 'Bands', es: 'Bandas' },
   eq_sled: { en: 'Sled', es: 'Trineo' },
+
+  // ---------------------------------------------------- exercise categories
+  cat_push: { en: 'Push', es: 'Empuje' },
+  cat_pull: { en: 'Pull', es: 'Tirón' },
+  cat_legs: { en: 'Legs', es: 'Pierna' },
+  cat_core: { en: 'Core', es: 'Core' },
+  cat_cardio: { en: 'Cardio', es: 'Cardio' },
 
   // --------------------------------------------------------- session types
   st_push: { en: 'Push', es: 'Empuje' },

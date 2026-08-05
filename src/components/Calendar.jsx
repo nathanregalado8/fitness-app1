@@ -157,6 +157,9 @@ function SessionDetail({ session, onDelete }) {
           <div key={entry.id} className="stack" style={{ gap: 2 }}>
             <span className="small">
               <strong>{exerciseName(entry.exerciseId, lang)}</strong>{' '}
+              {entry.durationMin != null && s.workingSets === 0 && (
+                <span className="muted">{entry.durationMin} min</span>
+              )}
               {s.workingSets > 0 && (
                 <span className="muted">
                   {s.workingSets} × · {s.totalReps} {tr('reps').toLowerCase()}

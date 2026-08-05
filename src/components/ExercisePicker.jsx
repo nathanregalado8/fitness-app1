@@ -27,7 +27,7 @@ export default function ExercisePicker({ onPick, onClose, restrictTo = null, tit
 
   const categoryOptions = [
     { value: 'all', label: tr('all') },
-    ...EXERCISE_CATEGORIES.map((c) => ({ value: c, label: tr(`st_${c === 'core' ? 'custom' : c}`) })),
+    ...EXERCISE_CATEGORIES.map((c) => ({ value: c, label: tr(`cat_${c}`) })),
   ];
 
   return (

@@ -150,8 +150,11 @@ test('each muscle group is tiered independently — no global averaging', () => 
 
   const chest = statFor(state, 'chest');
   const quads = statFor(state, 'quads');
-  assert.ok(chest.tier >= 4, `chest tier was ${chest.tier}`);
   assert.ok(quads.tier <= 2, `quads tier was ${quads.tier}`);
+  assert.ok(
+    chest.tier - quads.tier >= 2,
+    `chest ${chest.tier} vs quads ${quads.tier} — the two should diverge, not average`
+  );
 });
 
 test('implicated concerns match on whatever body part the user saved', () => {

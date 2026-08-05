@@ -44,11 +44,19 @@ export default function Train({ onSaved }) {
     } else {
       session.entries = plan.blocks.map((b) =>
         newEntry(b.exerciseId, {
+          restSec: b.restSec,
           sets: Array.from({ length: b.sets }, () =>
             newSet('normal', { weight: b.targetWeight, targetReps: b.targetReps })
           ),
         })
       );
+      // Conditioning closes the day. It logs by duration and has no primary
+      // movers, so it never touches recovery timers.
+      if (plan.finisher) {
+        session.entries.push(
+          newEntry(plan.finisher.exerciseId, { sets: [], durationMin: plan.finisher.minutes })
+        );
+      }
     }
 
     setRoutine(plan);

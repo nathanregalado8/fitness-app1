@@ -82,8 +82,24 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
   const done = (e) => (e.sets ?? []).filter((s) => s.done).length;
   const totalDone = entries.reduce((a, e) => a + done(e), 0);
 
-  const activeSet = entry ? (entry.sets ?? []).find((s) => !s.done) ?? null : null;
+  // Conditioning work carries no primary movers, so it is logged as minutes
+  // rather than sets — and it never feeds the muscle recovery timers.
+  const isTimed = (e) => (EXERCISE_BY_ID[e.exerciseId]?.primary.length ?? 0) === 0;
+  const entryComplete = (e) =>
+    isTimed(e) ? e.done === true : (e.sets?.length ?? 0) > 0 && done(e) >= e.sets.length;
+
+  const activeSet = entry && !isTimed(entry) ? (entry.sets ?? []).find((s) => !s.done) ?? null : null;
   const units = state.profile.units;
+  const restSec = entry?.restSec ?? restFor;
+
+  const planned = entries.reduce((a, e) => a + (isTimed(e) ? 0 : e.sets?.length ?? 0), 0);
+  const approxMin = Math.round(
+    entries.reduce(
+      (a, e) =>
+        a + (isTimed(e) ? Number(e.durationMin) || 0 : ((e.sets?.length ?? 0) * (40 + (e.restSec ?? restFor))) / 60),
+      0
+    )
+  );
 
   // Value being dialled in for the active set, kept out of the saved draft
   // until the user actually presses the log button.
@@ -103,7 +119,7 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
     const remaining = (entry.sets ?? []).filter((s) => !s.done).length - 1;
     // No rest prompt once the exercise is finished — the next move is a decision,
     // not a wait.
-    setRest(remaining > 0 ? { endsAt: Date.now() + restFor * 1000, paused: false } : null);
+    setRest(remaining > 0 ? { endsAt: Date.now() + restSec * 1000, paused: false } : null);
   };
 
   const finish = () => {
@@ -112,14 +128,14 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
       ...draft,
       entries: draft.entries
         .map((e) => ({ ...e, sets: (e.sets ?? []).filter((s) => s.done) }))
-        .filter((e) => !draft.isStrength || e.sets.length > 0),
+        .filter((e) => e.sets.length > 0 || (isTimed(e) && e.done)),
       updatedAt: Date.now(),
     };
     onFinish(clean);
   };
 
   const canFinish = draft.isStrength
-    ? totalDone > 0
+    ? totalDone > 0 || entries.some((e) => isTimed(e) && e.done)
     : draft.durationMin != null || draft.distanceKm != null;
 
   const meta = entry ? EXERCISE_BY_ID[entry.exerciseId] : null;
@@ -147,13 +163,7 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
           {entries.map((e, i) => (
             <span
               key={e.id}
-              className={`progress-seg ${
-                done(e) >= (e.sets?.length ?? 0) && (e.sets?.length ?? 0) > 0
-                  ? 'is-done'
-                  : i === index
-                    ? 'is-current'
-                    : ''
-              }`}
+              className={`progress-seg ${entryComplete(e) ? 'is-done' : i === index ? 'is-current' : ''}`}
             />
           ))}
         </div>
@@ -210,9 +220,20 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
 
           <h2 className="display">{meta?.name[lang] ?? entry.exerciseId}</h2>
           <span className="micro">
-            {(meta?.primary ?? []).map((m) => muscleName(m, lang)).join(' · ')}
+            {isTimed(entry)
+              ? tr('cardioFinisher')
+              : (meta?.primary ?? []).map((m) => muscleName(m, lang)).join(' · ')}
             {target ? ` · ${tr('currentTarget')} ${target.weight ?? '—'} ${units} × ${target.reps ?? '—'}` : ''}
           </span>
+
+          {!isTimed(entry) && (
+            <div className="row row-tight">
+              <span className="pill">
+                {tr('setsAndReps', { sets: entry.sets?.length ?? 0, reps: entry.sets?.[0]?.targetReps ?? '—' })}
+              </span>
+              <span className="pill">{tr('restPerSet', { sec: restSec })}</span>
+            </div>
+          )}
 
           {last && (
             <p className="tiny faint" style={{ margin: 0 }}>
@@ -220,6 +241,29 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
             </p>
           )}
 
+          {isTimed(entry) ? (
+            <div className="entry">
+              <Stepper
+                label={tr('duration')}
+                suffix={tr('minutesShort')}
+                value={entry.durationMin}
+                step={5}
+                onChange={(v) => updateEntry(entry.id, { durationMin: v })}
+              />
+              <Button
+                variant={entry.done ? 'default' : 'primary'}
+                className="btn-block btn-lg"
+                disabled={!(Number(entry.durationMin) > 0)}
+                onClick={() => {
+                  updateEntry(entry.id, { done: true });
+                  if (index + 1 < entries.length) setIndex(index + 1);
+                }}
+              >
+                {entry.done ? `✓ ${tr('logDuration')}` : tr('logDuration')}
+              </Button>
+            </div>
+          ) : (
+          <>
           <div className="set-table">
             {(entry.sets ?? []).filter((s) => s.done).length === 0 && (
               <p className="empty">{tr('noSetsLogged')}</p>
@@ -364,6 +408,9 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
             )}
           </div>
 
+          </>
+          )}
+
           <Field label={tr('notes')}>
             <input
               type="text"
@@ -380,7 +427,9 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
           <div className="spread">
             <strong className="small">{exerciseName(next.exerciseId, lang)}</strong>
             <span className="pill">
-              {next.sets.length} × {next.sets[0]?.targetReps ?? '—'}
+              {isTimed(next)
+                ? `${next.durationMin ?? '—'} ${tr('minutesShort')}`
+                : tr('setsAndReps', { sets: next.sets.length, reps: next.sets[0]?.targetReps ?? '—' })}
             </span>
           </div>
         </Card>
@@ -388,7 +437,13 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
 
       {draft.isStrength && (
         <Card>
-          <span className="step-label">{tr('sessionPlan')}</span>
+          <div className="spread">
+            <span className="step-label">{tr('sessionPlan')}</span>
+            <span className="tiny faint">
+              {entries.length} {tr('totalExercises').toLowerCase()} · {planned} {tr('totalSets').toLowerCase()} ·{' '}
+              {tr('estimatedTime')} {approxMin} {tr('minutesShort')}
+            </span>
+          </div>
           <div className="rows">
             {entries.map((e, i) => (
               <button
@@ -401,11 +456,15 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
                 }}
               >
                 <span className="row row-tight row-nowrap">
-                  <span className={`dot ${done(e) >= e.sets.length ? 'dot-flagged' : 'dot-recovering'}`} />
+                  <span className={`dot ${entryComplete(e) ? 'dot-flagged' : 'dot-recovering'}`} />
                   <span className={`small ${i === index ? '' : 'muted'}`}>{exerciseName(e.exerciseId, lang)}</span>
                 </span>
                 <span className="tiny faint">
-                  {done(e)} / {e.sets.length}
+                  {isTimed(e)
+                    ? `${e.durationMin ?? '—'} ${tr('minutesShort')}`
+                    : `${tr('setsAndReps', { sets: e.sets.length, reps: e.sets[0]?.targetReps ?? '—' })} · ${
+                        e.restSec ?? restFor
+                      }s · ${done(e)}/${e.sets.length}`}
                 </span>
               </button>
             ))}
@@ -494,15 +553,17 @@ export default function Logger({ draft, setDraft, routine, onFinish, onExit }) {
           restrictTo={draft.isStrength ? null : 'cardio'}
           onClose={() => setPicking(false)}
           onPick={(id) => {
+            const timed = (EXERCISE_BY_ID[id]?.primary.length ?? 0) === 0;
             setDraft((d) => ({
               ...d,
               entries: [
                 ...d.entries,
-                draft.isStrength
-                  ? newEntry(id, {
+                timed || !draft.isStrength
+                  ? newEntry(id, { sets: [], durationMin: draft.isStrength ? 10 : null })
+                  : newEntry(id, {
+                      restSec: restFor,
                       sets: Array.from({ length: 3 }, () => newSet('normal', { weight: null, targetReps: null })),
-                    })
-                  : newEntry(id, { sets: [] }),
+                    }),
               ],
             }));
             setPicking(false);

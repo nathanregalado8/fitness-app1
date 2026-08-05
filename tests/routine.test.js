@@ -68,11 +68,12 @@ test('a legs day covers quads, the posterior chain and calves', () => {
 });
 
 test('a push day never programs a pull lift, and vice versa', () => {
-  const pushMuscles = new Set(['chest', 'shoulders', 'triceps']);
+  // Core closes every day, so it is not a violation of the split.
+  const pushMuscles = new Set(['chest', 'shoulders', 'triceps', 'abs']);
   for (const b of routine(stateWith([]), 'push').blocks) {
     assert.ok(pushMuscles.has(EXERCISE_BY_ID[b.exerciseId].primary[0]), b.exerciseId);
   }
-  const pullMuscles = new Set(['lats', 'upper_back', 'biceps', 'forearms', 'shoulders']);
+  const pullMuscles = new Set(['lats', 'upper_back', 'biceps', 'forearms', 'shoulders', 'abs']);
   for (const b of routine(stateWith([]), 'pull').blocks) {
     assert.ok(pullMuscles.has(EXERCISE_BY_ID[b.exerciseId].primary[0]), b.exerciseId);
   }
@@ -172,4 +173,68 @@ test('unavailable or flagged alternatives are annotated, never hidden', () => {
   assert.ok(alts.some((a) => a.concerns.includes('shoulder')), 'flagged options should still be listed');
   // Best-ranked option should be one the user can actually do.
   assert.equal(alts[0].hasEquipment, true);
+});
+
+// ------------------------------------------------- core, cardio and rest
+
+test('every strength day closes with core work', () => {
+  for (const split of SPLITS) {
+    const r = routine(stateWith([]), split);
+    const core = r.blocks.filter((b) => b.slot === 'core');
+    assert.ok(core.length >= 1, `${split} programmed no core`);
+    for (const b of core) assert.equal(EXERCISE_BY_ID[b.exerciseId].primary[0], 'abs');
+    // Core is the last thing you do, not the first.
+    assert.equal(r.blocks.at(-1).slot, 'core');
+  }
+});
+
+test('core survives the short sessions of a high-frequency schedule', () => {
+  // The bug this guards: the slot budget used to cut the trailing abs slot
+  // exactly when someone trains often.
+  const state = stateWith([], { daysPerWeek: 6 });
+  for (const split of SPLITS) {
+    assert.ok(
+      routine(state, split).blocks.some((b) => b.slot === 'core'),
+      `${split} lost its core at 6 days/week`
+    );
+  }
+});
+
+test('a strength day ends with a short cardio finisher', () => {
+  for (const split of SPLITS) {
+    const r = routine(stateWith([]), split);
+    assert.ok(r.finisher, `${split} had no cardio finisher`);
+    assert.ok(EXERCISE_BY_ID[r.finisher.exerciseId]);
+    assert.equal(EXERCISE_BY_ID[r.finisher.exerciseId].category, 'cardio');
+    assert.ok(r.finisher.minutes > 0 && r.finisher.minutes <= 25, 'a finisher, not a cardio day');
+    // It must not fatigue a muscle group: conditioning has no primary movers.
+    assert.equal(EXERCISE_BY_ID[r.finisher.exerciseId].primary.length, 0);
+  }
+});
+
+test('the cardio finisher only uses equipment the user has', () => {
+  const r = buildRoutine(stateWith([], { equipment: ['barbell', 'rack'] }), 'push', { now: NOW });
+  assert.equal(r.finisher.exerciseId, 'run', 'running needs nothing');
+});
+
+test('every block prescribes its own rest, longest on the heavy work', () => {
+  const r = routine(stateWith([], { goal: 'strength' }), 'push');
+  for (const b of r.blocks) assert.ok(b.restSec > 0, `${b.exerciseId} had no rest prescribed`);
+
+  const main = r.blocks.find((b) => b.slot === 'main');
+  const core = r.blocks.find((b) => b.slot === 'core');
+  assert.ok(main.restSec > core.restSec, 'a heavy five-rep set needs more rest than a plank');
+});
+
+test('rest scales with the goal', () => {
+  const heavy = routine(stateWith([], { goal: 'strength' }), 'push').blocks[0];
+  const light = routine(stateWith([], { goal: 'endurance' }), 'push').blocks[0];
+  assert.ok(heavy.restSec > light.restSec);
+});
+
+test('a routine reports how long it will take', () => {
+  const r = routine(stateWith([]), 'push');
+  assert.ok(r.estimatedMinutes > 20 && r.estimatedMinutes < 150, `got ${r.estimatedMinutes}`);
+  // The finisher is part of the estimate.
+  assert.ok(r.estimatedMinutes > r.finisher.minutes);
 });
