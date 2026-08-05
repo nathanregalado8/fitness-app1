@@ -2,19 +2,18 @@ import { useState } from 'react';
 import { useApp } from './state/store.jsx';
 import Onboarding from './components/Onboarding.jsx';
 import Nav from './components/Nav.jsx';
-import LogSession from './components/LogSession.jsx';
+import Dashboard from './components/Dashboard.jsx';
+import Train from './components/Train.jsx';
 import Calendar from './components/Calendar.jsx';
-import BodyMap from './components/BodyMap.jsx';
-import Coach from './components/Coach.jsx';
 import ProfileView from './components/Profile.jsx';
 import SuggestionCard, { SuggestionQueue } from './components/SuggestionCard.jsx';
-import { Button } from './components/ui.jsx';
+import { Button, Modal } from './components/ui.jsx';
 
 export default function App() {
   const { state, lang, tr, actions, runSuggestionJob } = useApp();
-  const [tab, setTab] = useState('log');
+  const [tab, setTab] = useState('home');
   const [lastSavedSessionId, setLastSavedSessionId] = useState(null);
-  const [pendingRoutine, setPendingRoutine] = useState(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   if (!state.profile.onboarded) return <Onboarding />;
 
@@ -27,45 +26,44 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-head">
-        <h1>{tr('appName')}</h1>
-        <Button size="sm" variant="ghost" onClick={() => actions.setLanguage(lang === 'en' ? 'es' : 'en')}>
+        <h1 className="brand">{tr('brand')}</h1>
+        <Button size="sm" variant="quiet" onClick={() => actions.setLanguage(lang === 'en' ? 'es' : 'en')}>
           {lang === 'en' ? 'ES' : 'EN'}
         </Button>
       </header>
 
       <main className="app-main">
-        {tab === 'log' && (
-          <>
-            {lastSavedSessionId && <SuggestionQueue sessionId={lastSavedSessionId} />}
-            {olderPending.map((s) => (
-              <SuggestionCard key={s.id} suggestion={s} />
-            ))}
-            <LogSession
-              pending={pendingRoutine}
-              onConsumePending={() => setPendingRoutine(null)}
-              onSaved={(session) => {
-                setLastSavedSessionId(session.id);
-                // Post-session job: fires here and only here, never on app open.
-                runSuggestionJob(session);
-              }}
-            />
-          </>
-        )}
+        {tab === 'home' && <Dashboard onOpenSuggestions={() => setSheetOpen(true)} />}
 
-        {tab === 'calendar' && <Calendar />}
-        {tab === 'body' && <BodyMap />}
-        {tab === 'coach' && (
-          <Coach
-            onUseRoutine={(routine) => {
-              setPendingRoutine(routine);
-              setTab('log');
+        {tab === 'train' && (
+          <Train
+            onSaved={(session) => {
+              setLastSavedSessionId(session.id);
+              setSheetOpen(true);
+              setTab('home');
+              // Post-session job: fires here and only here, never on app open.
+              runSuggestionJob(session);
             }}
           />
         )}
+
+        {tab === 'history' && <Calendar />}
         {tab === 'profile' && <ProfileView />}
       </main>
 
       <Nav tab={tab} onChange={setTab} />
+
+      {sheetOpen && (
+        <Modal title={tr('suggestionTitle')} closeLabel={tr('close')} onClose={() => setSheetOpen(false)}>
+          {lastSavedSessionId && <SuggestionQueue sessionId={lastSavedSessionId} />}
+          {olderPending.map((s) => (
+            <SuggestionCard key={s.id} suggestion={s} />
+          ))}
+          {!lastSavedSessionId && olderPending.length === 0 && (
+            <p className="empty">{tr('suggestionNone')}</p>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

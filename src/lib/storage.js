@@ -51,6 +51,7 @@ export function defaultState() {
   return {
     version: STATE_VERSION,
     profile: {
+      name: '',
       language: (globalThis.navigator?.language ?? 'en').startsWith('es') ? 'es' : 'en',
       units: 'kg',
       goal: 'hypertrophy',

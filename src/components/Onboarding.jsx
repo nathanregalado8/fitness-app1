@@ -8,6 +8,7 @@ import { Button, Card, ChipToggle, Field, NumberInput, Segmented } from './ui.js
 /** Structured onboarding (spec Phase 3): goal, days/week, equipment, concerns. */
 export default function Onboarding() {
   const { state, lang, tr, actions } = useApp();
+  const [name, setName] = useState(state.profile.name ?? '');
   const [goal, setGoal] = useState(state.profile.goal);
   const [daysPerWeek, setDays] = useState(state.profile.daysPerWeek);
   const [units, setUnits] = useState(state.profile.units);
@@ -21,16 +22,21 @@ export default function Onboarding() {
     for (const part of concerns) {
       if (!state.profile.areasOfConcern.some((c) => c.bodyPart === part)) actions.addConcern(part, '');
     }
-    actions.completeOnboarding({ goal, daysPerWeek, units, equipment });
+    actions.completeOnboarding({ name: name.trim(), goal, daysPerWeek, units, equipment });
   };
 
   return (
     <div className="app">
       <header className="app-head">
-        <h1>{tr('welcome')}</h1>
+        <h1 className="brand">{tr('brand')}</h1>
       </header>
       <main className="app-main">
+        <h2 className="display">{tr('welcome')}</h2>
         <p className="muted small">{tr('welcomeSub')}</p>
+
+        <Card title={tr('yourName')}>
+          <input type="text" value={name} autoComplete="given-name" onChange={(ev) => setName(ev.target.value)} />
+        </Card>
 
         <Card title={tr('language')}>
           <Segmented

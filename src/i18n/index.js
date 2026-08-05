@@ -14,7 +14,7 @@ const STRINGS = {
   edit: { en: 'Edit', es: 'Editar' },
   add: { en: 'Add', es: 'Añadir' },
   done: { en: 'Done', es: 'Listo' },
-  back: { en: 'Back', es: 'Volver' },
+  goBack: { en: 'Back', es: 'Volver' },
   yes: { en: 'Yes', es: 'Sí' },
   no: { en: 'No', es: 'No' },
   adjust: { en: 'Adjust', es: 'Ajustar' },
@@ -32,11 +32,85 @@ const STRINGS = {
   empty: { en: 'Nothing here yet.', es: 'Aún no hay nada.' },
 
   // -------------------------------------------------------------------- nav
-  navLog: { en: 'Log', es: 'Registro' },
-  navCalendar: { en: 'Calendar', es: 'Calendario' },
-  navBody: { en: 'Body', es: 'Cuerpo' },
-  navCoach: { en: 'Coach', es: 'Entrenador' },
+  brand: { en: 'FORJA', es: 'FORJA' },
+  navHome: { en: 'Home', es: 'Inicio' },
+  navTrain: { en: 'Train', es: 'Entrenar' },
+  navHistory: { en: 'History', es: 'Historial' },
   navProfile: { en: 'Profile', es: 'Perfil' },
+
+  // -------------------------------------------------------------- dashboard
+  statPower: { en: 'Power', es: 'Power' },
+  statVolume: { en: 'Volume', es: 'Volumen' },
+  statSessions: { en: 'Sessions', es: 'Sesiones' },
+  streakDays: { en: 'days', es: 'días' },
+  weekProgress: { en: 'Week {n}', es: 'Semana {n}' },
+  stepMap: { en: '01 — MAP', es: '01 — MAPA' },
+  stepSession: { en: '03 — SESSION', es: '03 — SESIÓN' },
+  stepHistory: { en: '04 — HISTORY', es: '04 — HISTORIAL' },
+  stepGenerator: { en: '05 — GENERATOR', es: '05 — GENERADOR' },
+  stepProfile: { en: '06 — PROFILE', es: '06 — PERFIL' },
+  openSuggestion: { en: 'You have a coach suggestion', es: 'Tienes una sugerencia del entrenador' },
+  noDataYet: { en: 'Log a session and your map lights up.', es: 'Registra una sesión y tu mapa se enciende.' },
+
+  // ---------------------------------------------------------- session pick
+  whatTraining: { en: 'What are we training?', es: '¿Qué entrenamos?' },
+  whyRecovered: { en: '{muscle} {pct}% recovered', es: '{muscle} {pct}% recuperado' },
+  whyUntouched: { en: '{muscle} untouched {days} d', es: '{muscle} sin tocar {days} d' },
+  whyNoStimulus: { en: 'No stimulus in {days} d', es: 'Sin estímulo {days} d' },
+  whyFresh: { en: 'Never trained yet', es: 'Aún sin entrenar' },
+  whyFlagged: { en: '{part} flagged', es: '{part} marcada' },
+  whyHighLoad: { en: 'High load accumulated', es: 'Carga alta acumulada' },
+  whyDuration: { en: 'Logged by duration', es: 'Registro por duración' },
+  whyBuildOwn: { en: 'Build your own', es: 'Arma la tuya' },
+  legendReady: { en: 'Recovered', es: 'Recuperado' },
+  legendRecovering: { en: 'Recovering', es: 'En recuperación' },
+  legendFlagged: { en: 'Flagged area', es: 'Área marcada' },
+  legendNote: {
+    en: 'Warnings never block. The app lowers the suggested volume and lets you train.',
+    es: 'Los avisos no bloquean. La app baja el volumen sugerido y te deja entrenar.',
+  },
+
+  // --------------------------------------------------------------- logger
+  inProgress: { en: 'In progress', es: 'En curso' },
+  elapsed: { en: 'Time', es: 'Tiempo' },
+  currentSet: { en: 'Set {n} · current', es: 'Set {n} · actual' },
+  targetHint: { en: 'target {reps} reps', es: 'objetivo {reps} reps' },
+  registerSet: { en: 'Log set', es: 'Registrar set' },
+  restTimer: { en: 'Rest', es: 'Descanso' },
+  pause: { en: 'Pause', es: 'Pausar' },
+  resume: { en: 'Resume', es: 'Seguir' },
+  plus30: { en: '+30s', es: '+30s' },
+  skipRest: { en: 'Skip', es: 'Saltar' },
+  nextUp: { en: 'Next', es: 'Siguiente' },
+  finishExercise: { en: 'Next exercise', es: 'Siguiente ejercicio' },
+  finishSession: { en: 'Finish session', es: 'Terminar sesión' },
+  noSetsLogged: { en: 'No sets logged yet.', es: 'Aún no registras sets.' },
+  exerciseCount: { en: '{i} / {n}', es: '{i} / {n}' },
+  athlete: { en: 'Athlete', es: 'Atleta' },
+  yourName: { en: 'Name', es: 'Nombre' },
+  allExercisesDone: { en: 'Every exercise is done. Finish the session below.', es: 'Terminaste todos los ejercicios. Cierra la sesión abajo.' },
+  sessionPlan: { en: 'Session plan', es: 'Plan de la sesión' },
+  sessionDetails: { en: 'Session details', es: 'Detalles de la sesión' },
+
+  // ------------------------------------------------------------ generator
+  buildToday: { en: 'Build today\'s', es: 'Arma la de hoy' },
+  generatorHelp: {
+    en: 'Tell it how you arrive. It crosses your context with the abandoned groups on the map.',
+    es: 'Cuéntale cómo llegas. Cruza tu contexto con los grupos abandonados del mapa.',
+  },
+  generatorPlaceholder: {
+    en: 'Slept 5 h, right shoulder sensitive, I have 45 min…',
+    es: 'Dormí 5 h, hombro derecho sensible, tengo 45 min…',
+  },
+  quickLowSleep: { en: 'Low sleep', es: 'Poco sueño' },
+  quick45: { en: '45 min', es: '45 min' },
+  quickNoCables: { en: 'No cables', es: 'Sin poleas' },
+  quickShoulder: { en: 'Shoulder sensitive', es: 'Hombro sensible' },
+  quickEnergy: { en: 'Feeling strong', es: 'Con energía' },
+  generateRoutine: { en: 'Generate routine', es: 'Generar rutina' },
+
+  // -------------------------------------------------------------- history
+  tiersUp: { en: 'Tiers ↑', es: 'Tiers ↑' },
 
   // ------------------------------------------------------------ onboarding
   welcome: { en: 'Set up your profile', es: 'Configura tu perfil' },

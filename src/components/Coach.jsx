@@ -40,7 +40,9 @@ export default function Coach({ onUseRoutine }) {
 
   return (
     <>
-      <Card title={tr('coachTitle')}>
+      <Card>
+        <span className="step-label">{tr('stepGenerator')}</span>
+        <h2 className="display">{tr('buildToday')}</h2>
         <Segmented
           ariaLabel={tr('coachTitle')}
           value={tab}
@@ -50,20 +52,36 @@ export default function Coach({ onUseRoutine }) {
             { value: 'qa', label: tr('qaTab') },
           ]}
         />
-        <p className="muted tiny">{tr('readOnlyNote')}</p>
+        <p className="tiny faint" style={{ margin: 0 }}>{tr('readOnlyNote')}</p>
       </Card>
 
       {tab === 'routine' ? (
         <Card>
+          <p className="small muted" style={{ margin: 0 }}>{tr('generatorHelp')}</p>
+
+          <div className="chip-row">
+            {['quickLowSleep', 'quick45', 'quickNoCables', 'quickShoulder', 'quickEnergy'].map((k) => (
+              <button
+                key={k}
+                type="button"
+                className="chip"
+                onClick={() => setRequest((r) => (r ? `${r}, ${tr(k).toLowerCase()}` : tr(k)))}
+              >
+                {tr(k)}
+              </button>
+            ))}
+          </div>
+
           <Field label={tr('routineTab')}>
             <textarea
               value={request}
-              placeholder={tr('routinePlaceholder')}
+              placeholder={tr('generatorPlaceholder')}
               onChange={(ev) => setRequest(ev.target.value)}
             />
           </Field>
           <Button
             variant="primary"
+            className="btn-block"
             disabled={busy}
             onClick={() =>
               run(async () => {
@@ -73,7 +91,7 @@ export default function Coach({ onUseRoutine }) {
               }, setRoutine)
             }
           >
-            {busy ? tr('loading') : tr('generate')}
+            {busy ? tr('loading') : tr('generateRoutine')}
           </Button>
         </Card>
       ) : (

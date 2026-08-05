@@ -21,7 +21,19 @@ export default function Profile() {
 
   return (
     <>
-      <Card title={tr('profile')}>
+      <Card>
+        <span className="step-label">{tr('stepProfile')}</span>
+        <h2 className="display">{tr('profile')}</h2>
+
+        <Field label={tr('yourName')}>
+          <input
+            type="text"
+            value={p.name ?? ''}
+            autoComplete="given-name"
+            onChange={(ev) => actions.setProfile({ name: ev.target.value })}
+          />
+        </Field>
+
         <Field label={tr('language')}>
           <Segmented
             ariaLabel={tr('language')}

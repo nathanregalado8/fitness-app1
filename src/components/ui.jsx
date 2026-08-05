@@ -60,24 +60,61 @@ export function Card({ title, action, children, tone }) {
   );
 }
 
+/** Bottom sheet. Every modal surface in the app is one of these. */
 export function Modal({ title, onClose, children, footer, closeLabel = 'Close' }) {
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="sheet-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="modal"
+        className="sheet"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="modal-head">
-          <h2>{title}</h2>
+        <span className="sheet-grip" aria-hidden="true" />
+        <header className="sheet-head">
+          <h2 className="display-sm">{title}</h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label={closeLabel}>
             ×
           </button>
         </header>
-        <div className="modal-body">{children}</div>
-        {footer && <footer className="modal-foot">{footer}</footer>}
+        <div className="sheet-body">{children}</div>
+        {footer && <footer className="sheet-foot">{footer}</footer>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Big −/+ number control for the guided logger. Typing stays possible (the
+ * value is a real input) but thumbs never have to hit a tiny field.
+ */
+export function Stepper({ label, value, step = 1, min = 0, onChange, suffix }) {
+  const bump = (delta) => {
+    const next = Math.round(((Number(value) || 0) + delta) * 100) / 100;
+    onChange(Math.max(min, next));
+  };
+  return (
+    <div className="stepper">
+      <span className="stat-label">
+        {label}
+        {suffix ? ` · ${suffix}` : ''}
+      </span>
+      <div className="row row-tight row-nowrap">
+        <button type="button" className="stepper-btn" onClick={() => bump(-step)} aria-label={`− ${label}`}>
+          −
+        </button>
+        <input
+          className="stepper-value"
+          type="number"
+          inputMode="decimal"
+          aria-label={label}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+        />
+        <button type="button" className="stepper-btn" onClick={() => bump(step)} aria-label={`+ ${label}`}>
+          +
+        </button>
       </div>
     </div>
   );

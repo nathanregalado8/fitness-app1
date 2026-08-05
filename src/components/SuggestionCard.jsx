@@ -52,11 +52,10 @@ export default function SuggestionCard({ suggestion }) {
   return (
     <Card
       tone="accent"
-      title={tr('suggestionTitle')}
+      title={exerciseName(suggestion.exerciseId, lang)}
       action={<span className="pill">{tr(`dec_${suggestion.decision}`)}</span>}
     >
       <div className="stack">
-        <strong>{exerciseName(suggestion.exerciseId, lang)}</strong>
         <p className="small" style={{ margin: 0 }}>
           {suggestion.reasoning}
         </p>

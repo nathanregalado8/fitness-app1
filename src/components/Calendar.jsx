@@ -3,7 +3,7 @@ import { useApp } from '../state/store.jsx';
 import { exerciseName } from '../data/exercises.js';
 import { formatDate, monthMatrix, monthName, toISODate, weekdayShort } from '../lib/date.js';
 import { activityStreak, summarizeEntry } from '../lib/signals.js';
-import { Button, Card, Empty, Stat } from './ui.jsx';
+import { Button, Card, Empty } from './ui.jsx';
 
 /** Calendar view with history by date (spec Phase 1). */
 export default function Calendar() {
@@ -37,27 +37,43 @@ export default function Calendar() {
 
   return (
     <>
-      <Card>
-        <div className="stat-row">
-          <Stat label={tr('activityStreak')} value={streak.currentDays} sub={tr('days')} />
-          <Stat label={tr('longest')} value={streak.longestDays} sub={tr('days')} />
-          <Stat label={tr('totalSessions')} value={streak.totalSessions} />
+      <div className="stat-strip">
+        <div>
+          <span className="stat-label">{tr('activityStreak')}</span>
+          <span className="stat-value">
+            {streak.currentDays}
+            <span className="stat-sub"> {tr('days')}</span>
+          </span>
         </div>
-      </Card>
+        <div>
+          <span className="stat-label">{tr('longest')}</span>
+          <span className="stat-value">
+            {streak.longestDays}
+            <span className="stat-sub"> {tr('days')}</span>
+          </span>
+        </div>
+        <div>
+          <span className="stat-label">{tr('totalSessions')}</span>
+          <span className="stat-value">{streak.totalSessions}</span>
+        </div>
+      </div>
 
-      <Card
-        title={`${monthName(cursor.month, lang)} ${cursor.year}`}
-        action={
+      <Card>
+        <span className="step-label">{tr('stepHistory')}</span>
+        <div className="spread">
+          <h2 className="display-sm">
+            {monthName(cursor.month, lang)} {cursor.year}
+          </h2>
           <span className="row row-tight">
-            <Button size="sm" variant="ghost" onClick={() => shift(-1)} aria-label="previous month">
+            <Button size="sm" variant="quiet" onClick={() => shift(-1)} aria-label="previous month">
               ‹
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => shift(1)} aria-label="next month">
+            <Button size="sm" variant="quiet" onClick={() => shift(1)} aria-label="next month">
               ›
             </Button>
           </span>
-        }
-      >
+        </div>
+
         <div className="cal-grid">
           {weekdayShort(lang).map((d) => (
             <span className="cal-head" key={d}>
@@ -91,7 +107,8 @@ export default function Calendar() {
         </div>
       </Card>
 
-      <Card title={formatDate(selected, lang)}>
+      <Card>
+        <h2 className="display-sm">{formatDate(selected, lang)}</h2>
         {daySessions.length === 0 && <Empty>{tr('noSessionsOnDay')}</Empty>}
         <ul className="list-reset">
           {daySessions.map((s) => (

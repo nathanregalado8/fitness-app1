@@ -112,6 +112,12 @@ async function post(action, payload, apiKey) {
       error: res.status === 404 ? { code: 'no_backend' } : { code: 'bad_response', message: `HTTP ${res.status}` },
     };
   }
+  // A backend that exists but has no key of its own is the same situation as no
+  // backend at all: use the key the user pasted, if there is one.
+  if (!body?.ok && body?.error?.code === 'missing_api_key' && apiKey) {
+    return callDirect(action, payload, apiKey);
+  }
+
   return body?.ok ? body : { ok: false, error: body?.error ?? { code: 'unknown' } };
 }
 
