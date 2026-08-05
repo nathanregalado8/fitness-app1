@@ -46,6 +46,23 @@ body {
   overscroll-behavior-y: none;
 }
 
+/*
+ * The room. A red bloom bleeds in from the top corners and pools at the
+ * bottom, so the near-black never reads as flat grey. Fixed and behind
+ * everything — it does not scroll with the content.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 40% at 12% -6%, rgba(225, 29, 51, 0.22), transparent 70%),
+    radial-gradient(52% 36% at 92% 2%, rgba(255, 43, 61, 0.16), transparent 72%),
+    radial-gradient(90% 45% at 50% 108%, rgba(196, 20, 42, 0.18), transparent 70%);
+}
+
 h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.02em; }
 
 /* Big italic display headings — the signature of the design. */
@@ -84,18 +101,17 @@ h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.02em; }
   max-width: 480px;
   margin: 0 auto;
   position: relative;
+  z-index: 1;
 }
 
+/* Only the welcome screen carries the brand. Inside the app the name at the
+   top is the athlete's, not the product's. */
 .app-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 14px 18px 10px;
-  position: sticky;
-  top: 0;
-  background: linear-gradient(var(--bg) 72%, transparent);
-  z-index: 5;
 }
 
 .brand {
@@ -117,7 +133,7 @@ h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.02em; }
 
 .app-main {
   flex: 1;
-  padding: 4px 16px 104px;
+  padding: calc(14px + env(safe-area-inset-top)) 16px 104px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -170,7 +186,8 @@ h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.02em; }
 
 /* ---------------------------------------------------------------- cards */
 .card {
-  background: var(--surface);
+  background: rgba(20, 22, 25, 0.86);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: 16px;

@@ -8,7 +8,7 @@ import { blockAndWeek, motivationFor, motivationText, tierMovement } from '../li
 import { TIER_COLORS } from './muscleShapes.js';
 import BodyFigure from './BodyFigure.jsx';
 import { IconFlame, IconSpark } from './Icons.jsx';
-import { Card } from './ui.jsx';
+import { Button, Card } from './ui.jsx';
 
 /** Total volume load across every logged strength session in the last 7 days. */
 function weekVolume(state, now = Date.now()) {
@@ -27,9 +27,10 @@ const compact = (n, units) => {
 
 /** Home screen: who you are, how you're doing, and the map. */
 export default function Dashboard({ onOpenSuggestions }) {
-  const { state, lang, tr } = useApp();
+  const { state, lang, tr, actions } = useApp();
   const [view, setView] = useState('front');
   const [selected, setSelected] = useState(null);
+  const [nameDraft, setNameDraft] = useState('');
 
   const stats = useMemo(() => muscleStats(state), [state]);
   const byId = useMemo(() => Object.fromEntries(stats.map((m) => [m.muscleId, m])), [stats]);
@@ -75,10 +76,10 @@ export default function Dashboard({ onOpenSuggestions }) {
               fontStyle: 'italic', fontWeight: 800,
             }}
           >
-            {(state.profile.name || tr('athlete')).slice(0, 1).toUpperCase()}
+            {(state.profile.name || '?').slice(0, 1).toUpperCase()}
           </span>
           <span className="stack stack-tight">
-            <strong style={{ fontSize: '1.05rem' }}>{state.profile.name || tr('athlete')}</strong>
+            <strong style={{ fontSize: '1.15rem' }}>{state.profile.name || tr('yourName')}</strong>
             <span className="micro">
               {tr('blockWeek', { block: cycle.block, week: cycle.weekOfBlock })}
             </span>
@@ -90,6 +91,32 @@ export default function Dashboard({ onOpenSuggestions }) {
           <strong style={{ fontSize: '0.95rem' }}>{streak.currentDays}</strong> {tr('streakDays')}
         </span>
       </div>
+
+      {!state.profile.name && (
+        <form
+          className="card card-tight"
+          style={{ borderColor: 'var(--accent-deep)' }}
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            if (nameDraft.trim()) actions.setProfile({ name: nameDraft.trim() });
+          }}
+        >
+          <span className="step-label">{tr('askName')}</span>
+          <div className="row row-nowrap">
+            <input
+              type="text"
+              value={nameDraft}
+              autoComplete="given-name"
+              aria-label={tr('yourName')}
+              placeholder={tr('yourName')}
+              onChange={(ev) => setNameDraft(ev.target.value)}
+            />
+            <Button type="submit" variant="primary" disabled={!nameDraft.trim()}>
+              {tr('save')}
+            </Button>
+          </div>
+        </form>
+      )}
 
       {line && (
         <p className="hero-line">

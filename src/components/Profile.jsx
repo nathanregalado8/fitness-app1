@@ -38,10 +38,10 @@ export default function Profile() {
               fontStyle: 'italic', fontWeight: 800, fontSize: '1.3rem',
             }}
           >
-            {(p.name || tr('athlete')).slice(0, 1).toUpperCase()}
+            {(p.name || '?').slice(0, 1).toUpperCase()}
           </span>
           <span className="stack stack-tight grow">
-            <strong style={{ fontSize: '1.25rem' }}>{p.name || tr('athlete')}</strong>
+            <strong style={{ fontSize: '1.25rem' }}>{p.name || tr('askName')}</strong>
             <span className="tiny faint">
               {since ? `${tr('sinceMonth', { month: since })} · ` : ''}
               {tr('sessionsCount', { n: state.sessions.length })}

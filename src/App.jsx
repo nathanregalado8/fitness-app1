@@ -7,10 +7,10 @@ import Train from './components/Train.jsx';
 import Calendar from './components/Calendar.jsx';
 import ProfileView from './components/Profile.jsx';
 import SuggestionCard, { SuggestionQueue } from './components/SuggestionCard.jsx';
-import { Button, Modal } from './components/ui.jsx';
+import { Modal } from './components/ui.jsx';
 
 export default function App() {
-  const { state, lang, tr, actions, runSuggestionJob } = useApp();
+  const { state, tr, runSuggestionJob } = useApp();
   const [tab, setTab] = useState('home');
   const [lastSavedSessionId, setLastSavedSessionId] = useState(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -25,13 +25,8 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="app-head">
-        <h1 className="brand">{tr('brand')}</h1>
-        <Button size="sm" variant="quiet" onClick={() => actions.setLanguage(lang === 'en' ? 'es' : 'en')}>
-          {lang === 'en' ? 'ES' : 'EN'}
-        </Button>
-      </header>
-
+      {/* No brand bar: every screen opens on the athlete, the way the design
+          does. The language switch lives in the profile. */}
       <main className="app-main">
         {tab === 'home' && <Dashboard onOpenSuggestions={() => setSheetOpen(true)} />}
 
