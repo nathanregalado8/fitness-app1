@@ -166,6 +166,83 @@ const QA_TOOL = {
   },
 };
 
+/**
+ * Conversational coaching.
+ *
+ * The reply is prose, but anything that would *change* the app comes back as a
+ * typed proposal, never as an instruction hidden in text. Each proposal renders
+ * as a button the user has to press. The model cannot write to the log, and it
+ * cannot touch anything already recorded.
+ */
+const CHAT_TOOL = {
+  name: 'coach_reply',
+  description: 'Reply to the user, and optionally propose changes they can confirm.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      reply: { type: 'string', description: "Your answer, in the user's language. Two or three sentences." },
+      proposals: {
+        type: 'array',
+        description:
+          'Changes the user could accept. Leave empty when the message needs no change — ' +
+          'most messages do not. Never propose anything the user did not ask about.',
+        items: {
+          type: 'object',
+          properties: {
+            kind: {
+              type: 'string',
+              enum: [
+                'set_target',
+                'flag_concern',
+                'clear_concern',
+                'set_profile',
+                'set_equipment',
+                'build_session',
+              ],
+              description:
+                'set_target: a weight/rep target for the next time they do that exercise. ' +
+                'flag_concern / clear_concern: add or remove a body part on the areas-of-concern list. ' +
+                'set_profile: change goal, days per week or units. ' +
+                'set_equipment: add or drop a piece of equipment they have access to. ' +
+                'build_session: a full session they can start immediately — use this whenever ' +
+                'they ask to add an exercise, swap one, or train something specific today.',
+            },
+            label: { type: 'string', description: 'Button text, imperative, in the user\'s language.' },
+            exercise_id: { type: 'string', description: 'Required for set_target. Must appear in the payload.' },
+            weight: { type: 'number' },
+            reps: { type: 'number' },
+            body_part: { type: 'string', description: 'Required for flag_concern and clear_concern.' },
+            note: { type: 'string' },
+            goal: { type: 'string', enum: ['strength', 'hypertrophy', 'endurance', 'general'] },
+            days_per_week: { type: 'number' },
+            units: { type: 'string', enum: ['kg', 'lb'] },
+            equipment: { type: 'string', description: 'Equipment id, for set_equipment.' },
+            enabled: { type: 'boolean', description: 'For set_equipment: true adds it, false drops it.' },
+            session_type: { type: 'string', enum: SESSION_TYPES, description: 'For build_session.' },
+            exercises: {
+              type: 'array',
+              description: 'For build_session: the exercises, in the order they should be trained.',
+              items: {
+                type: 'object',
+                properties: {
+                  exercise_id: { type: 'string' },
+                  sets: { type: 'number' },
+                  target_reps: { type: 'number' },
+                  target_weight: { type: 'number' },
+                  rest_sec: { type: 'number' },
+                },
+                required: ['exercise_id', 'sets', 'target_reps'],
+              },
+            },
+          },
+          required: ['kind', 'label'],
+        },
+      },
+    },
+    required: ['reply'],
+  },
+};
+
 // -------------------------------------------------------------- system prompt
 
 const SHARED_SYSTEM = `You are the coaching layer of a personal training log.
@@ -231,6 +308,28 @@ export function buildRequest(action, payload) {
         `<exercise_catalog>\n${JSON.stringify(payload.catalog ?? [])}\n</exercise_catalog>\n\n` +
         `<request>${String(payload.request ?? '').slice(0, 2000)}</request>\n\n` +
         'Call propose_routine exactly once.',
+    };
+  }
+
+  if (action === 'chat') {
+    return {
+      tool: CHAT_TOOL,
+      effort: 'medium',
+      system:
+        `${SHARED_SYSTEM}\n\nTask: you are in a conversation with the user about their training. ` +
+        `Answer from the signals. The <today> block tells you the current date and how the ` +
+        `conversation sits relative to it — if the last exchange was on an earlier day, treat this ` +
+        `as a fresh day and pick up accordingly rather than continuing yesterday's session. ` +
+        `If — and only if — the conversation calls for a concrete change, attach it as a proposal; ` +
+        `the user must press a button for it to happen, so never describe a change as already made. ` +
+        `Most turns need no proposal at all. Write in ${lang}.`,
+      content:
+        `<today>\n${JSON.stringify(payload.today ?? {})}\n</today>\n\n` +
+        `<signals>\n${JSON.stringify(payload.signals)}\n</signals>\n\n` +
+        `<exercise_catalog>\n${JSON.stringify(payload.catalog ?? [])}\n</exercise_catalog>\n\n` +
+        `<conversation>\n${JSON.stringify(payload.history ?? [])}\n</conversation>\n\n` +
+        `<message>${String(payload.message ?? '').slice(0, 2000)}</message>\n\n` +
+        'Call coach_reply exactly once.',
     };
   }
 
@@ -330,6 +429,89 @@ export function validateQA(input) {
   };
 }
 
+const BODY_PART_RE = /^[a-z_]{2,30}$/;
+const GOALS = ['strength', 'hypertrophy', 'endurance', 'general'];
+const clampInt = (v, lo, hi, fallback) => {
+  const n = num(v);
+  return n == null ? fallback : Math.min(hi, Math.max(lo, Math.round(n)));
+};
+
+/**
+ * Only typed, whitelisted proposals survive, and each one must carry a payload
+ * this app knows how to apply. Free text never becomes an action, and an
+ * exercise id the model invented is dropped rather than shown.
+ */
+export function validateChat(input, allowedIds) {
+  const allowed = new Set(allowedIds);
+  const raw = Array.isArray(input?.proposals) ? input.proposals : [];
+
+  const build = (pr) => {
+    const base = { kind: pr.kind, label: str(pr.label, 80), note: str(pr.note, 240) ?? '' };
+
+    if (pr.kind === 'set_target') {
+      if (!allowed.has(pr.exercise_id)) return null;
+      const weight = num(pr.weight);
+      const reps = num(pr.reps);
+      if (weight == null && reps == null) return null;
+      return { ...base, exerciseId: pr.exercise_id, weight, reps };
+    }
+
+    if (pr.kind === 'flag_concern' || pr.kind === 'clear_concern') {
+      if (!BODY_PART_RE.test(String(pr.body_part ?? ''))) return null;
+      return { ...base, bodyPart: String(pr.body_part) };
+    }
+
+    if (pr.kind === 'set_profile') {
+      const fields = {};
+      if (GOALS.includes(pr.goal)) fields.goal = pr.goal;
+      if (num(pr.days_per_week) != null) fields.daysPerWeek = clampInt(pr.days_per_week, 1, 7, 4);
+      if (pr.units === 'kg' || pr.units === 'lb') fields.units = pr.units;
+      if (Object.keys(fields).length === 0) return null;
+      return { ...base, fields };
+    }
+
+    if (pr.kind === 'set_equipment') {
+      if (!EQUIPMENT_IDS.includes(pr.equipment)) return null;
+      return { ...base, equipment: pr.equipment, enabled: pr.enabled !== false };
+    }
+
+    if (pr.kind === 'build_session') {
+      const blocks = (Array.isArray(pr.exercises) ? pr.exercises : [])
+        .filter((b) => allowed.has(b?.exercise_id))
+        .slice(0, 12)
+        .map((b) => ({
+          exerciseId: b.exercise_id,
+          sets: clampInt(b.sets, 1, 10, 3),
+          targetReps: clampInt(b.target_reps, 1, 100, 10),
+          targetWeight: num(b.target_weight),
+          restSec: clampInt(b.rest_sec, 15, 300, 90),
+        }));
+      if (blocks.length === 0) return null;
+      return {
+        ...base,
+        sessionType: SESSION_TYPES.includes(pr.session_type) ? pr.session_type : 'custom',
+        blocks,
+      };
+    }
+
+    return null;
+  };
+
+  const proposals = raw
+    .filter((pr) => str(pr?.label, 80))
+    .map(build)
+    .filter(Boolean)
+    .slice(0, 4);
+
+  return { reply: str(input?.reply, 2000) ?? '', proposals };
+}
+
+/** Equipment the app understands. Kept here so the validator owns the list. */
+export const EQUIPMENT_IDS = [
+  'barbell', 'dumbbells', 'machine', 'cable', 'bench', 'rack', 'bar', 'bars',
+  'bodyweight', 'bike', 'pool', 'rope', 'kettlebell', 'band', 'sled',
+];
+
 export function allowedExerciseIds(action, payload) {
   const fromSignals = (payload?.signals?.perExercise ?? []).map((e) => e.exerciseId);
   const fromCatalog = (payload?.catalog ?? []).map((e) => e.id ?? e.exerciseId).filter(Boolean);
@@ -341,6 +523,7 @@ export function allowedExerciseIds(action, payload) {
 export function validateFor(action, input, allowedIds) {
   if (action === 'suggestion') return validateSuggestions(input, allowedIds);
   if (action === 'routine') return validateRoutine(input, allowedIds);
+  if (action === 'chat') return validateChat(input, allowedIds);
   return validateQA(input);
 }
 

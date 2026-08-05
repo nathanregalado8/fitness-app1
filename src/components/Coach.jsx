@@ -1,26 +1,22 @@
 import { useState } from 'react';
 import { useApp } from '../state/store.jsx';
-import { askQuestion, requestRoutine } from '../lib/aiClient.js';
+import { requestRoutine } from '../lib/aiClient.js';
 import { exerciseName } from '../data/exercises.js';
 import { muscleName } from '../data/muscles.js';
-import { Button, Card, Empty, Field, Segmented } from './ui.jsx';
+import { Button, Card, Empty, Field } from './ui.jsx';
 
 /**
- * On-demand AI surfaces (spec Phase 4): routine generation with freeform
- * context, and read-only Q&A over the user's own logged data.
+ * On-demand routine generation with freeform context (spec Phase 4).
  *
- * Both go through the backend proxy. Neither can write to the log — a
- * generated routine only becomes real when the user starts it and saves it
- * through the normal logging form.
+ * Goes through the backend proxy and cannot write to the log: a generated
+ * routine only becomes real when the user starts it and saves it through the
+ * normal logging form. Conversational Q&A lives in the chat next door.
  */
 export default function Coach({ onUseRoutine }) {
   const { state, lang, tr, actions } = useApp();
-  const [tab, setTab] = useState('routine');
   const [request, setRequest] = useState('');
-  const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
   const [routine, setRoutine] = useState(null);
-  const [answer, setAnswer] = useState(null);
   const [error, setError] = useState(null);
 
   const units = state.profile.units;
@@ -43,20 +39,10 @@ export default function Coach({ onUseRoutine }) {
       <Card>
         <span className="step-label">{tr('stepGenerator')}</span>
         <h2 className="display">{tr('buildToday')}</h2>
-        <Segmented
-          ariaLabel={tr('coachTitle')}
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: 'routine', label: tr('routineTab') },
-            { value: 'qa', label: tr('qaTab') },
-          ]}
-        />
         <p className="tiny faint" style={{ margin: 0 }}>{tr('readOnlyNote')}</p>
       </Card>
 
-      {tab === 'routine' ? (
-        <Card>
+      <Card>
           <p className="small muted" style={{ margin: 0 }}>{tr('generatorHelp')}</p>
 
           <div className="chip-row">
@@ -93,31 +79,7 @@ export default function Coach({ onUseRoutine }) {
           >
             {busy ? tr('loading') : tr('generateRoutine')}
           </Button>
-        </Card>
-      ) : (
-        <Card>
-          <Field label={tr('qaTab')}>
-            <textarea
-              value={question}
-              placeholder={tr('questionPlaceholder')}
-              onChange={(ev) => setQuestion(ev.target.value)}
-            />
-          </Field>
-          <Button
-            variant="primary"
-            disabled={busy || !question.trim()}
-            onClick={() =>
-              run(async () => {
-                const res = await askQuestion(state, question);
-                if (res.ok) actions.logCoach({ kind: 'qa', question });
-                return res;
-              }, setAnswer)
-            }
-          >
-            {busy ? tr('loading') : tr('ask')}
-          </Button>
-        </Card>
-      )}
+      </Card>
 
       {error && (
         <Card tone="warn">
@@ -126,7 +88,7 @@ export default function Coach({ onUseRoutine }) {
         </Card>
       )}
 
-      {tab === 'routine' && routine && (
+      {routine && (
         <Card title={routine.title} action={<span className="pill">{tr(`st_${routine.sessionType}`)}</span>}>
           <p className="small" style={{ margin: 0 }}>
             {routine.summary}
@@ -180,35 +142,6 @@ export default function Coach({ onUseRoutine }) {
         </Card>
       )}
 
-      {tab === 'qa' && answer && (
-        <Card title={tr('qaTab')}>
-          <p className="small" style={{ margin: 0 }}>
-            {answer.answer}
-          </p>
-
-          {answer.dataPoints.length > 0 && (
-            <ul className="list-reset">
-              {answer.dataPoints.map((d, i) => (
-                <li key={i} className="spread small">
-                  <span className="muted">{d.label}</span>
-                  <strong>{d.value}</strong>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {answer.caveats.length > 0 && (
-            <div className="stack" style={{ gap: 4 }}>
-              <strong className="tiny muted">{tr('caveats')}</strong>
-              {answer.caveats.map((c, i) => (
-                <span key={i} className="tiny muted">
-                  · {c}
-                </span>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
     </>
   );
 }

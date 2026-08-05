@@ -76,6 +76,8 @@ export function defaultState() {
     dismissed: {},
     /** Saved coach conversations (routine generation + read-only Q&A). */
     coachLog: [],
+    /** The chat thread: { id, role: 'user'|'coach', text, proposals, appliedAt }. */
+    chat: [],
   };
 }
 
@@ -103,6 +105,7 @@ function migrate(state) {
     jobs: state.jobs ?? {},
     dismissed: state.dismissed ?? {},
     coachLog: Array.isArray(state.coachLog) ? state.coachLog : [],
+    chat: Array.isArray(state.chat) ? state.chat : [],
   };
 }
 

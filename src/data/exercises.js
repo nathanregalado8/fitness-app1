@@ -394,7 +394,13 @@ export function alternativesFor(exerciseId, { equipment = [], areasOfConcern = [
   const skip = new Set([exerciseId, ...exclude]);
   const basePrimary = new Set(base.primary);
 
-  return EXERCISES.filter((e) => !skip.has(e.id) && e.primary.some((m) => basePrimary.has(m)))
+  // Conditioning work has no primary movers, so "shares a muscle" cannot rank
+  // it. Anything in the same category is a fair swap: a run, an incline walk
+  // and a rower are interchangeable ways to finish.
+  const related = (e) =>
+    basePrimary.size === 0 ? e.category === base.category : e.primary.some((m) => basePrimary.has(m));
+
+  return EXERCISES.filter((e) => !skip.has(e.id) && related(e))
     .map((e) => {
       const shared = e.primary.filter((m) => basePrimary.has(m)).length;
       const sameShape = e.primary.length === base.primary.length && shared === base.primary.length;

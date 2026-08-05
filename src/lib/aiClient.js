@@ -8,6 +8,7 @@
 
 import { EXERCISES, EXERCISE_BY_ID } from '../data/exercises.js';
 import { buildSignals } from './signals.js';
+import { toISODate } from './date.js';
 import {
   allowedExerciseIds,
   buildRequest,
@@ -163,6 +164,42 @@ function catalogFor(state) {
 export function requestRoutine(state, request) {
   const signals = buildSignals(state, { historyDepth: 4, maxExercises: 16 });
   return post('routine', { signals, catalog: catalogFor(state), request }, localKey(state));
+}
+
+/**
+ * Conversational coaching. The model sees the same Layer 1 signals as every
+ * other action — never the raw log — plus the recent turns of this thread.
+ */
+export function sendChat(state, message, history = [], now = Date.now()) {
+  const signals = buildSignals(state, { historyDepth: 6, maxExercises: 16 });
+  const lastTurn = history.at(-1)?.at ?? null;
+  const lastSession = Math.max(0, ...(state.sessions ?? []).map((s) => s.createdAt ?? 0));
+
+  return post(
+    'chat',
+    {
+      signals,
+      message,
+      catalog: catalogFor(state),
+      // Where we are in time. Without this the model has no way to know that
+      // the thread it is reading happened yesterday.
+      today: {
+        date: toISODate(now),
+        weekday: new Date(now).toLocaleDateString('en-US', { weekday: 'long' }),
+        isNewDay: lastTurn ? toISODate(lastTurn) !== toISODate(now) : true,
+        lastMessageDate: lastTurn ? toISODate(lastTurn) : null,
+        daysSinceLastSession: lastSession ? Math.floor((now - lastSession) / 86400000) : null,
+        loggedToday: (state.sessions ?? []).some((s) => s.date === toISODate(now)),
+      },
+      // Only the last few turns travel, and only their text.
+      history: history.slice(-8).map((m) => ({
+        role: m.role,
+        text: String(m.text ?? '').slice(0, 800),
+        date: m.at ? toISODate(m.at) : null,
+      })),
+    },
+    localKey(state)
+  );
 }
 
 /** Read-only Q&A about the user's own logged data. */

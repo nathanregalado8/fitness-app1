@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../state/store.jsx';
 import { exerciseName } from '../data/exercises.js';
 import { formatDate, monthMatrix, monthName, toISODate, weekdayShort } from '../lib/date.js';
-import { activityStreak, summarizeEntry } from '../lib/signals.js';
+import { activityStreak, muscleStats, summarizeEntry } from '../lib/signals.js';
+import { tierMovement } from '../lib/motivation.js';
 import { Button, Card, Empty } from './ui.jsx';
 
 /** Calendar view with history by date (spec Phase 1). */
@@ -26,6 +27,7 @@ export default function Calendar() {
   }, [state.sessions]);
 
   const streak = useMemo(() => activityStreak(state), [state]);
+  const movement = useMemo(() => tierMovement(muscleStats, state), [state]);
   const rows = monthMatrix(cursor.year, cursor.month);
   const daySessions = byDate.get(selected) ?? [];
 
@@ -37,27 +39,6 @@ export default function Calendar() {
 
   return (
     <>
-      <div className="stat-strip">
-        <div>
-          <span className="stat-label">{tr('activityStreak')}</span>
-          <span className="stat-value">
-            {streak.currentDays}
-            <span className="stat-sub"> {tr('days')}</span>
-          </span>
-        </div>
-        <div>
-          <span className="stat-label">{tr('longest')}</span>
-          <span className="stat-value">
-            {streak.longestDays}
-            <span className="stat-sub"> {tr('days')}</span>
-          </span>
-        </div>
-        <div>
-          <span className="stat-label">{tr('totalSessions')}</span>
-          <span className="stat-value">{streak.totalSessions}</span>
-        </div>
-      </div>
-
       <Card>
         <span className="step-label">{tr('stepHistory')}</span>
         <div className="spread">
@@ -107,6 +88,26 @@ export default function Calendar() {
         </div>
       </Card>
 
+      <div className="stat-strip">
+        <div>
+          <span className="stat-label">{tr('totalSessions')}</span>
+          <span className="stat-value">{streak.totalSessions}</span>
+        </div>
+        <div>
+          <span className="stat-label">{tr('activityStreak')}</span>
+          <span className="stat-value">
+            {streak.currentDays}
+            <span className="stat-sub"> {tr('days')}</span>
+          </span>
+        </div>
+        <div>
+          <span className="stat-label">{tr('tiersUp')}</span>
+          <span className="stat-value" style={{ color: movement.up > 0 ? 'var(--accent-soft)' : undefined }}>
+            {movement.up}
+          </span>
+        </div>
+      </div>
+
       <Card>
         <h2 className="display-sm">{formatDate(selected, lang)}</h2>
         {daySessions.length === 0 && <Empty>{tr('noSessionsOnDay')}</Empty>}
@@ -134,10 +135,10 @@ function SessionDetail({ session, onDelete }) {
   return (
     <div className="entry">
       <div className="spread">
-        <strong className="small">
-          {session.customName || tr(`st_${session.sessionType}`)}{' '}
-          {!session.isStrength && <span className="pill">{tr('activityStreak')}</span>}
-        </strong>
+        <span className="row row-tight">
+          <span className="pill pill-accent">{tr(`st_${session.sessionType}`)}</span>
+          {session.customName && <strong className="small">{session.customName}</strong>}
+        </span>
         <Button size="sm" variant="danger" onClick={onDelete}>
           {tr('delete')}
         </Button>
@@ -151,27 +152,32 @@ function SessionDetail({ session, onDelete }) {
         </span>
       )}
 
-      {session.entries.map((entry) => {
-        const s = summarizeEntry(entry);
-        return (
-          <div key={entry.id} className="stack" style={{ gap: 2 }}>
-            <span className="small">
-              <strong>{exerciseName(entry.exerciseId, lang)}</strong>{' '}
-              {entry.durationMin != null && s.workingSets === 0 && (
-                <span className="muted">{entry.durationMin} min</span>
-              )}
-              {s.workingSets > 0 && (
-                <span className="muted">
-                  {s.workingSets} × · {s.totalReps} {tr('reps').toLowerCase()}
-                  {s.topSetWeight ? ` · top ${s.topSetWeight}${units}` : ''}
-                  {s.completionPct != null ? ` · ${Math.round(s.completionPct * 100)}%` : ''}
+      <div className="rows">
+        {session.entries.map((entry) => {
+          const s = summarizeEntry(entry);
+          return (
+            <div key={entry.id}>
+              <span className="stack" style={{ gap: 3, alignItems: 'flex-start' }}>
+                <strong className="small">{exerciseName(entry.exerciseId, lang)}</strong>
+                <span className="tiny faint">
+                  {s.workingSets > 0
+                    ? `${s.workingSets} sets · ${s.totalReps} ${tr('reps').toLowerCase()}${
+                        s.completionPct != null ? ` · ${Math.round(s.completionPct * 100)}%` : ''
+                      }`
+                    : `${entry.durationMin ?? '—'} min`}
                 </span>
+                {entry.note && <span className="tiny faint">“{entry.note}”</span>}
+              </span>
+              {s.volumeLoad > 0 && (
+                <strong style={{ whiteSpace: 'nowrap' }}>
+                  {s.volumeLoad.toLocaleString(lang === 'es' ? 'es-ES' : 'en-US')}{' '}
+                  <span className="tiny faint">{units}</span>
+                </strong>
               )}
-            </span>
-            {entry.note && <span className="muted tiny">“{entry.note}”</span>}
-          </div>
-        );
-      })}
+            </div>
+          );
+        })}
+      </div>
 
       {session.notes && <span className="muted tiny">“{session.notes}”</span>}
     </div>

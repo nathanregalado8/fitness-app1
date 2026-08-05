@@ -6,6 +6,7 @@ import { exerciseName } from '../data/exercises.js';
 import { MAPPED_EXERCISE_IDS, progressionOptions } from '../data/progressions.js';
 import { loggedExerciseIds } from '../lib/signals.js';
 import { LANGUAGES } from '../i18n/index.js';
+import { monthName } from '../lib/date.js';
 import { Button, Card, ChipToggle, Empty, Field, NumberInput, Segmented } from './ui.jsx';
 
 export default function Profile() {
@@ -13,6 +14,9 @@ export default function Profile() {
   const p = state.profile;
   const fileRef = useRef(null);
   const [importError, setImportError] = useState(false);
+
+  const first = state.sessions.map((x) => x.createdAt ?? 0).filter(Boolean).sort()[0];
+  const since = first ? monthName(new Date(first).getMonth(), lang) : null;
 
   const toggleEquipment = (eq) =>
     actions.setProfile({
@@ -23,7 +27,27 @@ export default function Profile() {
     <>
       <Card>
         <span className="step-label">{tr('stepProfile')}</span>
-        <h2 className="display">{tr('profile')}</h2>
+
+        <div className="row row-nowrap" style={{ alignItems: 'center' }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: 52, height: 52, borderRadius: '50%', flex: '0 0 auto',
+              background: 'var(--surface-2)', border: '1px solid var(--line-2)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontStyle: 'italic', fontWeight: 800, fontSize: '1.3rem',
+            }}
+          >
+            {(p.name || tr('athlete')).slice(0, 1).toUpperCase()}
+          </span>
+          <span className="stack stack-tight grow">
+            <strong style={{ fontSize: '1.25rem' }}>{p.name || tr('athlete')}</strong>
+            <span className="tiny faint">
+              {since ? `${tr('sinceMonth', { month: since })} · ` : ''}
+              {tr('sessionsCount', { n: state.sessions.length })}
+            </span>
+          </span>
+        </div>
 
         <Field label={tr('yourName')}>
           <input
@@ -44,22 +68,38 @@ export default function Profile() {
         </Field>
 
         <Field label={tr('goal')}>
-          <Segmented
-            ariaLabel={tr('goal')}
-            value={p.goal}
-            onChange={(goal) => actions.setProfile({ goal })}
-            options={GOALS.map((g) => ({ value: g, label: tr(`goal${g[0].toUpperCase()}${g.slice(1)}`) }))}
-          />
+          <div className="chip-row">
+            {GOALS.map((g) => (
+              <ChipToggle
+                key={g}
+                label={tr(`goal${g[0].toUpperCase()}${g.slice(1)}`)}
+                active={p.goal === g}
+                onClick={() => actions.setProfile({ goal: g })}
+              />
+            ))}
+          </div>
         </Field>
 
-        <Field label={tr('daysPerWeek')}>
-          <Segmented
-            ariaLabel={tr('daysPerWeek')}
-            value={p.daysPerWeek}
-            onChange={(daysPerWeek) => actions.setProfile({ daysPerWeek })}
-            options={[1, 2, 3, 4, 5, 6, 7].map((n) => ({ value: n, label: String(n) }))}
-          />
-        </Field>
+        <div>
+          <div className="spread" style={{ marginBottom: 7 }}>
+            <span className="field-label">{tr('daysPerWeek')}</span>
+            <strong className="display-sm">{p.daysPerWeek}</strong>
+          </div>
+          <div className="chip-row" role="radiogroup" aria-label={tr('daysPerWeek')}>
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={p.daysPerWeek === n}
+                className={`chip chip-num ${n <= p.daysPerWeek ? 'is-filled' : ''}`}
+                onClick={() => actions.setProfile({ daysPerWeek: n })}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="grid-2">
           <Field label={tr('units')}>
@@ -218,8 +258,31 @@ function ConcernsCard() {
   };
 
   return (
-    <Card title={tr('areasOfConcern')}>
-      <p className="muted tiny">{tr('areasOfConcernHelp')}</p>
+    <Card>
+      <div className="spread">
+        <span className="field-label">{tr('areasOfConcern')}</span>
+        <span className="tiny faint">{tr('avoidedWhenSuggesting')}</span>
+      </div>
+
+      <div className="chip-row">
+        {BODY_PARTS.map((b) => {
+          const active = state.profile.areasOfConcern.find((c) => c.bodyPart === b.id);
+          return (
+            <button
+              key={b.id}
+              type="button"
+              aria-pressed={!!active}
+              className={`chip chip-dot ${active ? 'is-flagged' : ''}`}
+              onClick={() => (active ? actions.removeConcern(active.id) : actions.addConcern(b.id, ''))}
+            >
+              <span className={`dot ${active ? 'dot-flagged' : 'dot-recovering'}`} />
+              {bodyPartName(b.id, lang)}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="tiny faint" style={{ margin: 0 }}>{tr('areasOfConcernHelp')}</p>
 
       {state.profile.areasOfConcern.length === 0 && <Empty>{tr('noConcerns')}</Empty>}
 

@@ -487,8 +487,40 @@ textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
 
 /* ------------------------------------------------------------- body map */
 .bodymap-wrap { display: flex; gap: 8px; justify-content: center; align-items: flex-start; }
-.bodymap { flex: 1 1 100%; max-width: 300px; }
-.bodymap svg { width: 100%; height: auto; display: block; overflow: visible; }
+.bodymap { flex: 1 1 100%; max-width: 300px; position: relative; }
+.bodymap svg { width: 100%; height: auto; display: block; overflow: visible; position: relative; z-index: 1; }
+
+/* The stage the figure stands on. It warms up only once something is at peak. */
+.bodymap::before {
+  content: '';
+  position: absolute;
+  inset: -14% -22%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 58, 31, 0.16), rgba(255, 58, 31, 0.05) 55%, transparent 78%);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+.bodymap.is-charged::before { opacity: 1; animation: stageBreath 4.2s ease-in-out infinite; }
+
+/* --- aura ---------------------------------------------------------------
+   Peak muscles burn. Three layers, each breathing at its own rate: a wide
+   swell, the halo, and a white-hot core. Scaling happens on the wrapper so
+   the layers never drift apart from each other. */
+.bm-aura {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: auraBreath 3.1s ease-in-out infinite;
+}
+.bm-aura-wide { opacity: 0.34; animation: auraSwell 3.1s ease-in-out infinite; }
+.bm-aura-soft { opacity: 0.55; animation: auraSwell 2.3s ease-in-out infinite reverse; }
+.bm-aura-core { opacity: 0.9; animation: auraFlicker 1.35s ease-in-out infinite; }
+.bm-haze { opacity: 0.16; animation: auraSwell 5s ease-in-out infinite; }
+
+@keyframes auraBreath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+@keyframes auraSwell { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.66; } }
+@keyframes auraFlicker { 0%, 100% { opacity: 0.72; } 45% { opacity: 1; } 60% { opacity: 0.86; } }
+@keyframes stageBreath { 0%, 100% { opacity: 0.72; } 50% { opacity: 1; } }
 .muscle-hit { cursor: pointer; }
 .muscle-hit:hover { stroke: var(--accent-soft) !important; opacity: 0.6; }
 
@@ -637,4 +669,92 @@ textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* The earned line under the athlete's name. */
+.hero-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: var(--r);
+  background: linear-gradient(100deg, var(--accent-tint-2), var(--surface) 70%);
+  border: 1px solid var(--accent-deep);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.hero-line svg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--accent-soft); }
+
+/* Numbered day-count chips: everything up to the choice reads as filled. */
+.chip-num { min-width: 44px; text-align: center; padding: 9px 0; }
+.chip-num.is-filled { color: var(--accent-soft); border-color: var(--accent-deep); background: var(--accent-tint); }
+
+.chip-dot { display: inline-flex; align-items: center; gap: 7px; }
+.chip-dot.is-flagged { color: var(--accent-soft); border-color: var(--accent); background: var(--accent-tint); }
+
+/* ----------------------------------------------------------------- chat */
+.thread { display: flex; flex-direction: column; gap: 10px; }
+
+.bubble {
+  border-radius: var(--r-lg);
+  padding: 13px 15px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bubble-user {
+  align-self: flex-end;
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+.bubble-coach {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 6px;
+}
+
+/* A proposal is the only way the coach changes anything, and it needs a press. */
+.proposal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-deep);
+}
+
+.composer {
+  position: sticky;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--r-lg);
+  background: rgba(20, 22, 25, 0.94);
+  border: 1px solid var(--line-2);
+  backdrop-filter: blur(12px);
+}
+.composer input { border-radius: var(--r-sm); }
+.composer .btn { flex: 0 0 auto; }
+
+/* A new day gets its own marker so yesterday's thread reads as history. */
+.day-divider {
+  align-self: center;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--faint);
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
 }

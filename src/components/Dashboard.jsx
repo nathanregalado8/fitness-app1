@@ -3,10 +3,11 @@ import { useApp } from '../state/store.jsx';
 import { activityStreak, muscleStats, strengthSessions, summarizeEntry } from '../lib/signals.js';
 import { MUSCLE_GROUPS, muscleName } from '../data/muscles.js';
 import { tierLabel } from '../lib/powerScore.js';
-import { formatDate, formatHoursAgo, toISODate } from '../lib/date.js';
+import { formatDate, formatHoursAgo } from '../lib/date.js';
+import { blockAndWeek, motivationFor, motivationText, tierMovement } from '../lib/motivation.js';
 import { TIER_COLORS } from './muscleShapes.js';
 import BodyFigure from './BodyFigure.jsx';
-import { IconFlame } from './Icons.jsx';
+import { IconFlame, IconSpark } from './Icons.jsx';
 import { Card } from './ui.jsx';
 
 /** Total volume load across every logged strength session in the last 7 days. */
@@ -35,6 +36,8 @@ export default function Dashboard({ onOpenSuggestions }) {
   const levels = useMemo(() => Object.fromEntries(stats.map((m) => [m.muscleId, m.tier])), [stats]);
 
   const streak = useMemo(() => activityStreak(state), [state]);
+  const movement = useMemo(() => tierMovement(muscleStats, state), [state]);
+  const cycle = useMemo(() => blockAndWeek(state), [state]);
   const power = Math.round(stats.reduce((a, m) => a + m.powerScore, 0));
   const vol = compact(weekVolume(state), state.profile.units);
   const doneThisWeek = useMemo(() => {
@@ -44,6 +47,20 @@ export default function Dashboard({ onOpenSuggestions }) {
 
   const pending = state.suggestions.filter((s) => s.status === 'pending');
   const current = selected ? byId[selected] : null;
+
+  const lastSessionAt = Math.max(0, ...state.sessions.map((s) => s.createdAt ?? 0));
+  const line = motivationText(
+    motivationFor({
+      stats,
+      streak,
+      doneThisWeek,
+      daysPerWeek: state.profile.daysPerWeek,
+      tiersUp: movement.up,
+      daysSinceLastSession: lastSessionAt ? (Date.now() - lastSessionAt) / 86400000 : 0,
+      muscleName: (id) => muscleName(id, lang),
+    }),
+    lang
+  );
 
   return (
     <>
@@ -63,9 +80,7 @@ export default function Dashboard({ onOpenSuggestions }) {
           <span className="stack stack-tight">
             <strong style={{ fontSize: '1.05rem' }}>{state.profile.name || tr('athlete')}</strong>
             <span className="micro">
-              {tr('weekProgress', { n: Math.max(1, Math.ceil(streak.totalSessions / Math.max(1, state.profile.daysPerWeek))) })}
-              {' · '}
-              {tr(`goal${state.profile.goal[0].toUpperCase()}${state.profile.goal.slice(1)}`)}
+              {tr('blockWeek', { block: cycle.block, week: cycle.weekOfBlock })}
             </span>
           </span>
         </div>
@@ -75,6 +90,13 @@ export default function Dashboard({ onOpenSuggestions }) {
           <strong style={{ fontSize: '0.95rem' }}>{streak.currentDays}</strong> {tr('streakDays')}
         </span>
       </div>
+
+      {line && (
+        <p className="hero-line">
+          <IconSpark aria-hidden="true" />
+          {line}
+        </p>
+      )}
 
       <div className="stat-strip">
         <div>

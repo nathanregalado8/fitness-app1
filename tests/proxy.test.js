@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateQA, validateRoutine, validateSuggestions } from '../src/lib/aiProtocol.js';
+import { validateChat, validateQA, validateRoutine, validateSuggestions } from '../src/lib/aiProtocol.js';
 
 const ALLOWED = ['barbell-bench-press', 'incline-barbell-press'];
 
@@ -132,8 +132,11 @@ test('every request forces the tool call on the single configured model', async 
     ['suggestion', 'record_suggestions'],
     ['routine', 'propose_routine'],
     ['qa', 'answer_question'],
+    ['chat', 'coach_reply'],
   ]) {
-    const body = messagesBody(buildRequest(action, { signals, catalog: [], request: 'x', question: 'x' }));
+    const body = messagesBody(
+      buildRequest(action, { signals, catalog: [], request: 'x', question: 'x', message: 'x' })
+    );
     assert.equal(body.model, MODEL);
     assert.equal(body.model, 'claude-sonnet-5', 'spec pins one model for all Layer 2 calls');
     assert.deepEqual(body.tool_choice, { type: 'tool', name: tool }, `${action} must force its tool`);
@@ -161,4 +164,74 @@ test('an exported backup never carries the API key', async () => {
   assert.ok(!dump.includes('sk-ant-secret-value'), 'key must be stripped from exports');
   assert.equal(JSON.parse(dump).profile.apiKey, undefined);
   assert.equal(JSON.parse(dump).profile.goal, state.profile.goal, 'the rest of the profile survives');
+});
+
+// ------------------------------------------------------------------- chat
+
+test('the chat request carries the date, the catalog and the thread', async () => {
+  const { buildRequest } = await import('../src/lib/aiProtocol.js');
+  const spec = buildRequest('chat', {
+    signals: { schema: 'fitness-app1/layer1@1', profile: { language: 'es' } },
+    catalog: [{ id: 'back-squat' }],
+    today: { date: '2026-08-05', isNewDay: true },
+    history: [{ role: 'user', text: 'ayer', date: '2026-08-04' }],
+    message: 'hoy que toca',
+  });
+
+  assert.equal(spec.tool.name, 'coach_reply');
+  assert.match(spec.content, /<today>/);
+  assert.match(spec.content, /isNewDay/);
+  assert.match(spec.content, /<exercise_catalog>/);
+  // The model has to be told the thread may be from an earlier day.
+  assert.match(spec.system, /fresh day/);
+});
+
+test('the chat can only propose changes this app knows how to apply', () => {
+  const { proposals } = validateChat(
+    {
+      reply: 'ok',
+      proposals: [
+        { kind: 'set_target', label: 'Sube', exercise_id: 'back-squat', weight: 120, reps: 5 },
+        { kind: 'set_target', label: 'Sube', exercise_id: 'not-a-real-lift', weight: 100 },
+        { kind: 'set_target', label: 'Nada', exercise_id: 'back-squat' },
+        { kind: 'delete_history', label: 'Borra todo' },
+        { kind: 'set_profile', label: 'Cambia', goal: 'strength', days_per_week: 99 },
+        { kind: 'set_equipment', label: 'Añade', equipment: 'jetpack' },
+        { kind: 'build_session', label: 'Empieza', session_type: 'push', exercises: [] },
+      ],
+    },
+    ['back-squat']
+  );
+
+  const kinds = proposals.map((p) => p.kind);
+  assert.deepEqual(kinds, ['set_target', 'set_profile']);
+  assert.equal(proposals[0].exerciseId, 'back-squat');
+  // Out-of-range values are clamped rather than trusted.
+  assert.equal(proposals[1].fields.daysPerWeek, 7);
+  // Nothing in the tool schema can reach historical logs.
+  assert.ok(!kinds.includes('delete_history'));
+});
+
+test('a proposed session drops exercises the model invented', () => {
+  const { proposals } = validateChat(
+    {
+      reply: 'listo',
+      proposals: [
+        {
+          kind: 'build_session',
+          label: 'Empezar',
+          session_type: 'push',
+          exercises: [
+            { exercise_id: 'barbell-bench-press', sets: 4, target_reps: 8, rest_sec: 120 },
+            { exercise_id: 'hyperbolic-press', sets: 3, target_reps: 10 },
+          ],
+        },
+      ],
+    },
+    ['barbell-bench-press']
+  );
+
+  assert.equal(proposals.length, 1);
+  assert.deepEqual(proposals[0].blocks.map((b) => b.exerciseId), ['barbell-bench-press']);
+  assert.equal(proposals[0].blocks[0].restSec, 120);
 });

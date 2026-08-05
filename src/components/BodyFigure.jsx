@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { MAX_TIER } from '../lib/powerScore.js';
 import {
+  AURA_COLOR,
   AURA_CORE,
   AURA_DEFS,
   AURA_FLARE,
@@ -36,9 +37,19 @@ export default function BodyFigure({ view, levels, selected, onSelect, label, sh
   const uid = `${useId().replace(/[:]/g, '')}-${view}`;
   const ids = GROUP_ORDER[view];
   const peak = ids.filter((id) => levels[id] === MAX_TIER);
+  // Tier 4 gets a faint heat haze — the aura starts before the top, so you can
+  // see a group approaching it rather than having it appear from nothing.
+  const rising = ids.filter((id) => levels[id] === MAX_TIER - 1);
+
+  const glow = (list, fill, key) =>
+    list.map((id) =>
+      MUSCLES[view][id].levels[(levels[id] ?? 1) - 1].fill.map((d, i) => (
+        <path key={`${id}-${key}-${i}`} d={d} fill={fill} />
+      ))
+    );
 
   return (
-    <div className="bodymap">
+    <div className={`bodymap ${peak.length > 0 ? 'is-charged' : ''}`}>
       <svg viewBox={VIEWBOX} role="img" aria-label={label} style={{ overflow: 'visible' }}>
         <defs dangerouslySetInnerHTML={{ __html: AURA_DEFS.replace(/id="/g, `id="${uid}-`) }} />
 
@@ -48,21 +59,25 @@ export default function BodyFigure({ view, levels, selected, onSelect, label, sh
           <path key={`ink-${i}`} d={d} fill="none" stroke="#2b333c" strokeWidth="0.6" />
         ))}
 
+        {rising.length > 0 && (
+          <g className="bm-haze" filter={`url(#${uid}-auraSoft)`} style={{ pointerEvents: 'none' }}>
+            {glow(rising, AURA_FLARE, 'haze')}
+          </g>
+        )}
+
         {peak.length > 0 && (
           <g className="bm-aura" style={{ pointerEvents: 'none' }}>
-            <g filter={`url(#${uid}-auraSoft)`} opacity="0.5">
-              {peak.map((id) =>
-                MUSCLES[view][id].levels[MAX_TIER - 1].fill.map((d, i) => (
-                  <path key={`${id}-soft-${i}`} d={d} fill={AURA_FLARE} />
-                ))
-              )}
+            {/* Three stacked layers: a wide swell, the halo, and a white-hot
+                core. Each breathes at its own rate, which is what reads as
+                energy rather than as a static blur. */}
+            <g className="bm-aura-wide" filter={`url(#${uid}-auraSoft)`}>
+              {glow(peak, AURA_COLOR, 'wide')}
             </g>
-            <g filter={`url(#${uid}-aura)`} opacity="0.85">
-              {peak.map((id) =>
-                MUSCLES[view][id].levels[MAX_TIER - 1].fill.map((d, i) => (
-                  <path key={`${id}-core-${i}`} d={d} fill={AURA_CORE} />
-                ))
-              )}
+            <g className="bm-aura-soft" filter={`url(#${uid}-auraSoft)`}>
+              {glow(peak, AURA_FLARE, 'soft')}
+            </g>
+            <g className="bm-aura-core" filter={`url(#${uid}-aura)`}>
+              {glow(peak, AURA_CORE, 'core')}
             </g>
           </g>
         )}

@@ -161,6 +161,27 @@ export function AppProvider({ children }) {
       logCoach: (entry) =>
         patch((s) => ({ ...s, coachLog: [{ id: uid('coach'), at: Date.now(), ...entry }, ...s.coachLog].slice(0, 30) })),
 
+      // ------------------------------------------------------------- chat
+      // The thread is kept oldest-first and capped: it is a conversation, not
+      // an archive, and everything it can change is stored elsewhere anyway.
+      appendChat: (message) =>
+        patch((s) => ({
+          ...s,
+          chat: [...s.chat, { id: uid('msg'), at: Date.now(), ...message }].slice(-40),
+        })),
+
+      markProposalApplied: (messageId, index) =>
+        patch((s) => ({
+          ...s,
+          chat: s.chat.map((m) =>
+            m.id !== messageId
+              ? m
+              : { ...m, proposals: m.proposals.map((pr, i) => (i === index ? { ...pr, appliedAt: Date.now() } : pr)) }
+          ),
+        })),
+
+      clearChat: () => patch((s) => ({ ...s, chat: [] })),
+
       importJSON: (json) => patch(() => importState(json)),
 
       resetAll: () => patch(() => ({ ...defaultState(), profile: { ...defaultState().profile, onboarded: false } })),

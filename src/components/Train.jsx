@@ -7,7 +7,8 @@ import { exerciseHistory } from '../lib/signals.js';
 import SessionPicker from './SessionPicker.jsx';
 import Logger from './Logger.jsx';
 import Coach from './Coach.jsx';
-import { Button, Card, Empty } from './ui.jsx';
+import CoachChat from './CoachChat.jsx';
+import { Button, Card, Empty, Segmented } from './ui.jsx';
 
 /** Prefill an entry from the saved target, then last performance, then blanks. */
 function buildEntry(state, exerciseId) {
@@ -33,6 +34,7 @@ export default function Train({ onSaved }) {
   const { state, lang, tr, actions } = useApp();
   const [draft, setDraft] = useState(null);
   const [routine, setRoutine] = useState(null);
+  const [view, setView] = useState('session');
 
   const startSession = (sessionType) => {
     const session = newSession(sessionType);
@@ -83,8 +85,43 @@ export default function Train({ onSaved }) {
     );
   }
 
+  // A routine handed over by the chat or the generator becomes an editable
+  // draft — nothing is logged until the user finishes the session themselves.
+  const useRoutine = (plan) => {
+    const session = newSession(plan.sessionType, { customName: plan.title ?? '' });
+    session.entries = plan.blocks
+      .filter((b) => EXERCISE_BY_ID[b.exerciseId])
+      .map((b) =>
+        newEntry(b.exerciseId, {
+          note: b.note ?? '',
+          restSec: b.restSec ?? null,
+          sets: Array.from({ length: b.sets }, () =>
+            newSet('normal', { weight: b.targetWeight ?? null, targetReps: b.targetReps ?? null })
+          ),
+        })
+      );
+    setRoutine(null);
+    setDraft(session);
+  };
+
   return (
     <>
+      <Segmented
+        ariaLabel={tr('navTrain')}
+        value={view}
+        onChange={setView}
+        options={[
+          { value: 'session', label: tr('viewSession') },
+          { value: 'chat', label: tr('chatTab') },
+          { value: 'generator', label: tr('routineTab') },
+        ]}
+      />
+
+      {view === 'chat' && <CoachChat onStartSession={useRoutine} />}
+      {view === 'generator' && <Coach onUseRoutine={useRoutine} />}
+
+      {view === 'session' && (
+        <>
       <SessionPicker onStart={startSession} />
 
       <Card>
@@ -122,23 +159,8 @@ export default function Train({ onSaved }) {
         </div>
       </Card>
 
-      <Coach
-        onUseRoutine={(plan) => {
-          const session = newSession(plan.sessionType, { customName: plan.title ?? '' });
-          session.entries = plan.blocks
-            .filter((b) => EXERCISE_BY_ID[b.exerciseId])
-            .map((b) =>
-              newEntry(b.exerciseId, {
-                note: b.note ?? '',
-                sets: Array.from({ length: b.sets }, () =>
-                  newSet('normal', { weight: b.targetWeight ?? null, targetReps: b.targetReps ?? null })
-                ),
-              })
-            );
-          setRoutine(null);
-          setDraft(session);
-        }}
-      />
+        </>
+      )}
     </>
   );
 }

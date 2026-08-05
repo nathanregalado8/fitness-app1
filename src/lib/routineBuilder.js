@@ -106,7 +106,7 @@ const coreCount = (blockCount) => (blockCount >= 6 ? 1 : 2);
  */
 export const CARDIO_FINISHER = {
   minutes: { strength: 8, hypertrophy: 10, endurance: 20, general: 12 },
-  /** First option the user owns the equipment for; running needs nothing. */
+  /** Ranked pool; running is last-resort-proof because it needs no equipment. */
   options: ['run', 'jump-rope', 'assault-bike', 'rowing-machine', 'stair-climber', 'cycling', 'treadmill-run'],
 };
 
@@ -389,7 +389,7 @@ export function buildRoutine(state, sessionType, { now = Date.now(), ignoreRecov
     return { ...retry, skipped, overridden: true };
   }
 
-  const finisher = cardioFinisher(profile, goal);
+  const finisher = cardioFinisher(profile, goal, recentByExercise);
 
   return {
     sessionType,
@@ -410,17 +410,29 @@ export function restFor(goal, slot) {
   return table[slot] ?? table.accessory;
 }
 
-/** The conditioning piece that closes a strength day, if the user can do one. */
-export function cardioFinisher(profile, goal) {
+/**
+ * The conditioning piece that closes a strength day, if the user can do one.
+ *
+ * Rotates: of the options the user owns equipment for, it offers whichever has
+ * gone longest without being done. Running every single day gets old, and the
+ * finisher is swappable from the logger anyway.
+ */
+export function cardioFinisher(profile, goal, recentByExercise = new Map()) {
   const owned = profile?.equipment ?? [];
-  const exerciseId = CARDIO_FINISHER.options.find((id) => {
+  const available = CARDIO_FINISHER.options.filter((id) => {
     const e = EXERCISE_BY_ID[id];
     return e && hasEquipmentFor(e, owned);
   });
-  if (!exerciseId) return null;
+  if (available.length === 0) return null;
+
+  const staleness = (id) => recentByExercise.get(id) ?? Infinity;
+  const exerciseId = available.reduce((best, id) => (staleness(id) > staleness(best) ? id : best));
+
   return {
     exerciseId,
     minutes: CARDIO_FINISHER.minutes[goal] ?? CARDIO_FINISHER.minutes.general,
+    /** Everything else they could do instead, for the swap sheet. */
+    options: available,
   };
 }
 
